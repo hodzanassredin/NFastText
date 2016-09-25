@@ -10,9 +10,7 @@ fastText is a library for efficient learning of word representations and sentenc
 
 Mono | .NET
 ---- | ----
-[![Mono CI Build Status](https://img.shields.io/travis/fsprojects/NFastText/master.svg)](https://travis-ci.org/fsprojects/NFastText) 
-[![Build Status](https://travis-ci.org/hodzanassredin/NFastText.svg?branch=master)](https://travis-ci.org/hodzanassredin/NFastText)
-[![.NET Build Status](https://ci.appveyor.com/api/projects/status/la2bl0e332ci8ut1?svg=true)](https://ci.appveyor.com/project/hodzanassredin/nfasttext)
+[![Mono CI Build Status](https://travis-ci.org/hodzanassredin/NFastText.svg?branch=master)](https://travis-ci.org/hodzanassredin/NFastText) | [![.NET Build Status](https://ci.appveyor.com/api/projects/status/la2bl0e332ci8ut1?svg=true)](https://ci.appveyor.com/project/hodzanassredin/nfasttext)
 
 ## Maintainer(s)
 
