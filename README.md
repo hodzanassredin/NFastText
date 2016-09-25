@@ -1,5 +1,5 @@
-[![Issue Stats](http://issuestats.com/github/fsprojects/ProjectScaffold/badge/issue)](http://issuestats.com/github/fsprojects/ProjectScaffold)
-[![Issue Stats](http://issuestats.com/github/fsprojects/ProjectScaffold/badge/pr)](http://issuestats.com/github/fsprojects/ProjectScaffold)
+[![Issue Stats](http://issuestats.com/github/fsprojects/NFastText/badge/issue)](http://issuestats.com/github/fsprojects/NFastText)
+[![Issue Stats](http://issuestats.com/github/fsprojects/NFastText/badge/pr)](http://issuestats.com/github/fsprojects/NFastText)
 
 # NFastText
 
