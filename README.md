@@ -1,11 +1,6 @@
-[![Issue Stats](http://issuestats.com/github/fsprojects/NFastText/badge/issue)](http://issuestats.com/github/fsprojects/NFastText)
-[![Issue Stats](http://issuestats.com/github/fsprojects/NFastText/badge/pr)](http://issuestats.com/github/fsprojects/NFastText)
-
 # NFastText
 
-# fastText
-
-fastText is a library for efficient learning of word representations and sentence classification.
+NFastText is a .net library for efficient learning of word representations and sentence classification.
 ## Build Status
 
 Mono | .NET
