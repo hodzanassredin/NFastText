@@ -1,0 +1,25 @@
+type project
+title
+    NFastText
+owners
+    Shelin Anton
+authors 
+    Shelin Anton
+projectUrl
+    https://github.com/hodzanassredin/NFastText
+iconUrl
+    https://raw.githubusercontent.com/hodzanassredin/NFastText/master/docs/files/img/logo.png
+licenseUrl
+    https://github.com/hodzanassredin/NFastText/blob/master/LICENSE.txt
+requireLicenseAcceptance
+    false
+copyright
+    Copyright 2015
+tags
+    fsharp ml nlp
+summary
+    fast text classification library based on facebook's fastText library implementation.
+description
+    NFastText is a library for efficient learning of word representations and sentence classification.
+
+
