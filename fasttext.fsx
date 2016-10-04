@@ -29,8 +29,8 @@ let train() =
 let test() =
     let fs = FastTextM.FastText()
     let r = FastTextM.test "D:/ft/result/dbpedia.bin" "D:/ft/data/dbpedia.test" 1 fs
-    assert(r.precision = 0.98f) 
-    assert(r.recall = 0.98f)
+    assert(r.precision >= 0.9839857f) 
+    assert(r.recall >= 0.9839857f)
     assert(r.nexamples = 70000) 
 
 let predictRes = [|

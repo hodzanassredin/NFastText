@@ -23,8 +23,8 @@ module Model =
             }
        end
 
-    type Model(wi : Matrix, wo : Matrix, args : Args, seed) =
-        let rng_ = Random.Mcg31m1(1)
+    type Model(wi : Matrix, wo : Matrix, args : Args, seed : int) =
+        let rng_ = Random.Mcg31m1(seed)
         let grad_ = createVector(args.dim)
         let output_ = createVector(wo.m)
         let hidden_ = createVector(args.dim)
