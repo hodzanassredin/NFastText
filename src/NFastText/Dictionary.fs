@@ -22,7 +22,7 @@ module Dictionary =
     let EOW = ByteString.fromString(">")
     let MAX_VOCAB_SIZE = 30000000
     let MAX_LINE_SIZE = 1024
-    type Dictionary(args : Args) =
+    type Dictionary(args : Args, label : String, verbose : int) =
       let mutable size_ = 0
       let mutable nwords_ = 0
       let mutable nlabels_ = 0
@@ -42,7 +42,7 @@ module Dictionary =
           ntokens_ <- ntokens_ + 1
           if word2int_.[h] = -1 
           then
-            let et : entry_type = if w.StartsWith(args.label) then entry_type.label else entry_type.word
+            let et : entry_type = if w.StartsWith(label) then entry_type.label else entry_type.word
             let e = Entry(w, 1L, et, ResizeArray<_>(), false)
             
             words_.Add(e)
@@ -158,7 +158,7 @@ module Dictionary =
           let mutable minThreshold = 1L
           while Dictionary.readWord(inp, word) do
             x.add(word.Copy())
-            if ntokens_ % 1000000 = 0 && args.verbose > 1
+            if ntokens_ % 1000000 = 0 && verbose > 1
             then printf "\rRead %d M words" (ntokens_  / 1000000)
             if size_ > (MAX_VOCAB_SIZE / 4 * 3)
             then x.threshold(minThreshold)

@@ -25,14 +25,14 @@ module Model =
 
     type Model(wi : Matrix, wo : Matrix, args : Args, seed) =
         let rng_ = Random.Mcg31m1(1)
-        let grad_ = createVector(args.Dim)
+        let grad_ = createVector(args.dim)
         let output_ = createVector(wo.m)
-        let hidden_ = createVector(args.Dim)
+        let hidden_ = createVector(args.dim)
         let codes : ResizeArray<ResizeArray<bool>> = ResizeArray<ResizeArray<bool>>()
         let paths : ResizeArray<ResizeArray<int>> = ResizeArray<ResizeArray<int>>()
         let isz_ = wi.m
         let osz_ = wo.m
-        let hsz_ = args.Dim
+        let hsz_ = args.dim
         let mutable negpos = 0
         let mutable loss_ = 0.0f
         let mutable nexamples_ = 1
@@ -54,7 +54,7 @@ module Model =
         member x.NegativeSampling(target : int, lr : float32) =
           let mutable loss = 0.0f
           grad_.Zero()
-          for n = 0 to args.Neg do
+          for n = 0 to args.neg do
             if n = 0 
             then
               loss <- loss + x.BinaryLogistic(target, true, lr)

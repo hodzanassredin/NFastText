@@ -1,9 +1,7 @@
 source https://nuget.org/api/v2
 
-nuget Argu
 nuget FSharp.Core redirects: force
 nuget FsPickler
-nuget MathNet.Numerics
 
 group Build
   source https://nuget.org/api/v2
