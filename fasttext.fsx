@@ -24,7 +24,7 @@ let trainArgs = {
 }
 let train() =
     let fs = FastTextM.FastText()
-    FastTextM.train(trainArgs) |> ignore
+    FastTextM.train trainArgs fs |> ignore
 
 let test() =
     let fs = FastTextM.FastText()
