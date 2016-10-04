@@ -57,9 +57,10 @@ let predict() =
                 |> Array.ofSeq
     assert(r = predictRes)
 
-["train", train; "test", test; "predict", predict] 
-        |> List.map (fun (n,f) -> n, timeit f)
-        |> List.iter (fun (n,t) -> printfn "%s\n%f" n t)
+[|"train", train; "test", test; "predict", predict|] 
+        |> Array.map (fun (n,f) -> printfn "exec %s" n
+                                   n, timeit f)
+        |> Array.iter (fun (n,t) -> printfn "%s\n%f" n t)
 
 
 
