@@ -119,47 +119,9 @@ module Dictionary =
             words_.[i].subwords.Add(i);
             x.computeNgrams(word, words_.[i].subwords)
 
-//        ' '	(0x20)	space (SPC)
-//        '\t'	(0x09)	horizontal tab (TAB)
-//        '\n'	(0x0a)	newline (LF)
-//        '\v'	(0x0b)	vertical tab (VT)
-//        '\f'	(0x0c)	feed (FF)
-//        '\r'	(0x0d)	carriage return (CR)
-
-      static member isspace(c : byte) = 
-        c = 0x20uy || c = 0x09uy || c = 0x0auy || c = 0x0buy || c = 0x0cuy || c = 0x0duy
-
-      static member readWordInt(inp : BinaryReader, word : String) = 
-            if inp.EOF() 
-            then word.Count > 0
-            else
-                let c = inp.ReadByte()
-                if Dictionary.isspace(c) || c = 0uy 
-                then
-                    if word.Count = 0
-                    then
-                        if c = 0x0auy // \n
-                        then word.AddRange(EOS)
-                             true
-                        else Dictionary.readWordInt(inp, word)
-                    else
-                        if c = 0x0auy // \n
-                        then inp.Unget()
-                        true
-                else word.Add(c)
-                     Dictionary.readWordInt(inp, word)
-
-      static member readWords(inp : BinaryReader) = 
-          let word = String()
-          seq{
-            while Dictionary.readWordInt(inp, word) do
-                yield word.Copy()
-                word.Clear()
-          }
-
-      member x.readFromFile(inp : BinaryReader) =
+      member x.readFromFile(inp : seq<String>) =
           let mutable minThreshold = 1L
-          for word in Dictionary.readWords(inp) do
+          for word in inp do
             x.add(word)
             if ntokens_ % 1000000 = 0 && verbose > 1
             then printf "\rRead %d M words" (ntokens_  / 1000000)
@@ -247,7 +209,7 @@ module Dictionary =
           labels.Clear()
           if inp.EOF() 
           then inp.MoveAbs(0L) 
-          let wordsSeq = Dictionary.readWords(inp)
+          let wordsSeq = inp.readWords()
           
           x.cycle(rng, wordsSeq.GetEnumerator(), words, labels, 0)
 

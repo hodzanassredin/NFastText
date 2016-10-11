@@ -65,6 +65,7 @@
     <Content Include="App.config" />
     <Compile Include="Utils.fs" />
     <Compile Include="Random.fs" />
+    <Compile Include="ByteString.fs" />
     <Compile Include="BaseTypes.fs" />
     <Compile Include="Heap.fs" />
     <Compile Include="Matrix.fs" />

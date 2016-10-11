@@ -260,8 +260,8 @@ module FastTextM =
           state.dict_ <- Dictionary(state.args_, label, verbose)
           use ifs = try new BinaryReader(args.input)
                     with ex -> failwith "Input file cannot be opened!"
-          
-          state.dict_.readFromFile(ifs)
+          let words = ifs.readWords()
+          state.dict_.readFromFile(words)
           ifs.Close()
 
           state.input_ <- Matrix.create(state.dict_.nwords() + int(state.args_.bucket), state.args_.dim)

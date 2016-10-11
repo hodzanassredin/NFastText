@@ -16,6 +16,8 @@ module BaseTypes =
             then this.Capacity <- this.Count
 
     type BinaryReader (s : System.IO.Stream) = 
+        let EOS = ByteString.fromString("</s>")
+        
         let buff_size = 10000000
         let buff : byte[] = Array.zeroCreate buff_size 
         let len = s.Length
@@ -57,55 +59,50 @@ module BaseTypes =
         interface System.IDisposable with 
             member this.Dispose() = s.Dispose()
 
+        //        ' '	(0x20)	space (SPC)
+        //        '\t'	(0x09)	horizontal tab (TAB)
+        //        '\n'	(0x0a)	newline (LF)
+        //        '\v'	(0x0b)	vertical tab (VT)
+        //        '\f'	(0x0c)	feed (FF)
+        //        '\r'	(0x0d)	carriage return (CR)
+
+        static member isspace(c : byte) = 
+          c = 0x20uy || c = 0x09uy || c = 0x0auy || c = 0x0buy || c = 0x0cuy || c = 0x0duy
+
+        member x.readWordInt(inp : BinaryReader, word : String) = 
+            if inp.EOF() 
+            then word.Count > 0
+            else
+                let c = inp.ReadByte()
+                if BinaryReader.isspace(c) || c = 0uy 
+                then
+                    if word.Count = 0
+                    then
+                        if c = 0x0auy // \n
+                        then word.AddRange(EOS)
+                             true
+                        else x.readWordInt(inp, word)
+                    else
+                        if c = 0x0auy // \n
+                        then inp.Unget()
+                        true
+                else word.Add(c)
+                     x.readWordInt(inp, word)
+
+        member x.readWords() = 
+          let word = String()
+          seq{
+            while x.readWordInt(x, word) do
+                yield word.Copy()
+                word.Clear()
+          }
+
     let binaryWriter(filename) = new System.IO.BinaryWriter(System.IO.File.Open(filename, System.IO.FileMode.Create))
     let binaryReader(filename) = 
             let s = System.IO.File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
             new System.IO.BinaryReader(s)
 
-[<AutoOpen>]
-module ByteString =
 
-    type String = ResizeArray<byte>
-    open System.Runtime.CompilerServices
-    let fromString(s : string) = String(System.Text.Encoding.UTF8.GetBytes(s))
-    
-    [<Extension>]
-    type ArrayExts () =
-        [<Extension>]
-        static member Clear(this : String) = this.RemoveRange(0, this.Count)
-        [<Extension>]
-        static member Copy(this : String) = ResizeArray<byte>(this.ToArray())
-        [<Extension>]
-        static member StartsWith(this : String, sub : String) = 
-            let mutable i = 0
-            if sub.Count > this.Count 
-            then false
-            else while i < sub.Count && this.[i] = sub.[i] do
-                    i <- i + 1
-                 i = sub.Count
-
-        [<Extension>]
-        static member ToStr(this : String) = 
-            System.Text.Encoding.UTF8.GetString(this.ToArray())
-
-        [<Extension>]
-        static member Hash(this : String) = 
-            let mutable h = 2166136261u
-            for i = 0 to this.Count - 1 do
-                h <- h ^^^ uint32(this.[i])
-                h <- h * 16777619u
-            h
-        [<Extension>]
-        static member Eq (x : String, y : String) =
-            x.Count = y.Count && ArrayExts.StartsWith(x,y)
-
-        [<Extension>]
-        static member Wrap (v : String, pref : String, suff : String) =
-            let sum = String(v.Count + pref.Count + suff.Count)
-            sum.AddRange(pref)
-            sum.AddRange(v)
-            sum.AddRange(suff)
-            sum
 
 
 
