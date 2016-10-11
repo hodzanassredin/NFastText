@@ -149,15 +149,18 @@ module Dictionary =
                 else word.Add(c)
                      Dictionary.readWordInt(inp, word)
 
-      static member readWord(inp : BinaryReader, word : String) = 
-          word.Clear()
-          Dictionary.readWordInt(inp, word)
+      static member readWords(inp : BinaryReader) = 
+          let word = String()
+          seq{
+            while Dictionary.readWordInt(inp, word) do
+                yield word.Copy()
+                word.Clear()
+          }
 
       member x.readFromFile(inp : BinaryReader) =
-          let word = String()
           let mutable minThreshold = 1L
-          while Dictionary.readWord(inp, word) do
-            x.add(word.Copy())
+          for word in Dictionary.readWords(inp) do
+            x.add(word)
             if ntokens_ % 1000000 = 0 && verbose > 1
             then printf "\rRead %d M words" (ntokens_  / 1000000)
             if size_ > (MAX_VOCAB_SIZE / 4 * 3)
@@ -214,37 +217,39 @@ module Dictionary =
               line.Add(nwords_ + int(h % uint64(args.bucket)))
 
       member x.cycle(uniform : Random.Mcg31m1,
-                     inp : BinaryReader, 
+                     inp : System.Collections.Generic.IEnumerator<String>, 
                      words : ResizeArray<int>,
-                     labels : ResizeArray<int>,
-                     token : String, 
+                     labels : ResizeArray<int>, 
                      ntokens :int) = 
-            if not (Dictionary.readWord(inp, token)) then ntokens
-            else if token.Eq EOS then ntokens
-            else let wid = x.getId(token)
-                 if wid < 0 then x.cycle(uniform, inp, words, labels, token, ntokens)
-                 else let etype = x.getType(wid)
-                      if etype = entry_type.word && not (x.discard(wid, uniform.Sample()))
-                      then 
-                            words.Add(wid)
-                      if etype = entry_type.label 
-                      then 
-                        labels.Add(wid - nwords_)
-                      if words.Count > MAX_LINE_SIZE && args.model <> model_name.sup
-                      then ntokens + 1
-                      else x.cycle(uniform, inp, words, labels, token, ntokens + 1)
+            
+            match inp.MoveNext(), inp.Current with
+                | false,_ ->  ntokens
+                | _, token when token.Eq EOS -> ntokens
+                | _, token ->
+                     let wid = x.getId(token)
+                     if wid < 0 then x.cycle(uniform, inp, words, labels, ntokens)
+                     else let etype = x.getType(wid)
+                          if etype = entry_type.word && not (x.discard(wid, uniform.Sample()))
+                          then 
+                                words.Add(wid)
+                          if etype = entry_type.label 
+                          then 
+                            labels.Add(wid - nwords_)
+                          if words.Count > MAX_LINE_SIZE && args.model <> model_name.sup
+                          then ntokens + 1
+                          else x.cycle(uniform, inp, words, labels, ntokens + 1)
 
       member x.getLine(inp : BinaryReader, 
                        words : ResizeArray<int>,
                        labels : ResizeArray<int>,
                        rng : Random.Mcg31m1)=
-          let token = String()
           words.Clear()
           labels.Clear()
           if inp.EOF() 
           then inp.MoveAbs(0L) 
-
-          x.cycle(rng, inp, words, labels, token, 0)
+          let wordsSeq = Dictionary.readWords(inp)
+          
+          x.cycle(rng, wordsSeq.GetEnumerator(), words, labels, 0)
 
       member x.getLabel(lid : int) =
           assert(lid >= 0)
