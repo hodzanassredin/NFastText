@@ -98,12 +98,9 @@ module FastTextM =
 
     let textVectors state rng=
             seq{
-                  let line = ResizeArray<int>()
-                  let labels = ResizeArray<int>()
                   let vec = createVector(state.args_.dim)
                   use cin = new BinaryReader(System.Console.OpenStandardInput())
-                  while cin.NotEOF() do
-                    state.dict_.getLine(cin, line, labels, rng) |> ignore//todo
+                  for line,labels in state.dict_.getLines(cin, rng, false) do
                     state.dict_.addNgrams(line, state.args_.wordNgrams)
                     vec.Zero()
                     for i = 0 to line.Count - 1 do
@@ -169,13 +166,11 @@ module FastTextM =
           let mutable nexamples = 0
           let mutable nlabels = 0
           let mutable precision = 0.0f
-          let line = ResizeArray<int>()
-          let labels = ResizeArray<int>()
+
           use ifs = try new BaseTypes.BinaryReader(filename)
                     with ex -> failwith "Test file cannot be opened!"
           
-          while ifs.NotEOF() do
-            state.dict_.getLine(ifs, line, labels, model_.rng) |> ignore
+          for line,labels in state.dict_.getLines(ifs, model_.rng, false) do
             state.dict_.addNgrams(line, state.args_.wordNgrams);
             if (labels.Count > 0 && line.Count > 0) 
             then
@@ -196,13 +191,10 @@ module FastTextM =
 
           
         member x.predict(filename : string, k : int) =
-          let line = ResizeArray<int>()
-          let labels = ResizeArray<int>()
           use ifs = try new BinaryReader(filename)
                     with ex -> failwith "Test file cannot be opened!"
           seq{
-              while ifs.NotEOF() do
-                state.dict_.getLine(ifs, line, labels, model_.rng) |> ignore // todo
+              for line,labels in state.dict_.getLines(ifs, model_.rng, false) do
                 state.dict_.addNgrams(line, state.args_.wordNgrams)
                 if line.Count = 0 
                 then yield None
@@ -230,12 +222,14 @@ module FastTextM =
 
           let ntokens = state.dict_.ntokens()
           let mutable localTokenCount = 0
-          let line = ResizeArray<int>()
-          let labels = ResizeArray<int>()
+
+          let lineSrc = state.dict_.getLines(ifs, model.rng, true).GetEnumerator()
           while tokenCount < int64(state.args_.epoch * ntokens) do
             let progress = float32(tokenCount) / float32(state.args_.epoch * ntokens)
             let lr = state.args_.lr * (1.0f - progress)
-            localTokenCount <- localTokenCount + state.dict_.getLine(ifs, line, labels, model.rng)
+            lineSrc.MoveNext() |> ignore
+            let line, labels = lineSrc.Current
+            localTokenCount <- localTokenCount + line.Count + labels.Count//todo verify
             if state.args_.model = model_name.sup
             then
               state.dict_.addNgrams(line, state.args_.wordNgrams)
