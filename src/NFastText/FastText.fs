@@ -100,7 +100,7 @@ module FastTextM =
             seq{
                   let vec = createVector(state.args_.dim)
                   use cin = new BinaryReader(System.Console.OpenStandardInput())
-                  for line,labels in state.dict_.getLines(cin, rng, false) do
+                  for line,_ in state.dict_.getLines(cin, rng, false) do
                     state.dict_.addNgrams(line, state.args_.wordNgrams)
                     vec.Zero()
                     for i = 0 to line.Count - 1 do
@@ -194,7 +194,7 @@ module FastTextM =
           use ifs = try new BinaryReader(filename)
                     with ex -> failwith "Test file cannot be opened!"
           seq{
-              for line,labels in state.dict_.getLines(ifs, model_.rng, false) do
+              for line,_ in state.dict_.getLines(ifs, model_.rng, false) do
                 state.dict_.addNgrams(line, state.args_.wordNgrams)
                 if line.Count = 0 
                 then yield None
