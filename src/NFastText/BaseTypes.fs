@@ -28,7 +28,8 @@ module BaseTypes =
         new(filename) = let stream = System.IO.File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
                         new BinaryReader(stream)
 
-        member x.ReadByte() = if pos >= len 
+        member private x.ReadByte() = 
+                              if pos >= len 
                               then raise <| System.IO.EndOfStreamException()
                               let i = int(pos - buff_pos)
                               if i < 0 //unget handle
@@ -96,6 +97,24 @@ module BaseTypes =
                 yield word.Copy()
                 word.Clear()
           }
+        member x.readLines(max_line_size, fromStartOnEof) =
+             seq{
+                    let en = x.readWords().GetEnumerator()
+                    let mutable notEof = en.MoveNext()
+                    while notEof do
+                        yield seq{
+                            let mutable wordsCount = 0
+                            while notEof && (en.Current.Eq EOS |> not) && wordsCount < max_line_size do
+                                yield en.Current
+                                notEof <- en.MoveNext()
+                                wordsCount <- wordsCount + 1
+                        }
+                        if en.Current.Eq EOS then notEof <- en.MoveNext()
+                    if fromStartOnEof 
+                    then x.MoveAbs(0L) 
+                         yield! x.readLines(max_line_size, fromStartOnEof)
+              }
+
 
     let binaryWriter(filename) = new System.IO.BinaryWriter(System.IO.File.Open(filename, System.IO.FileMode.Create))
     let binaryReader(filename) = 

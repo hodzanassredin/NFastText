@@ -86,14 +86,9 @@ module FastTextM =
             seq{
                   let vec = createVector(state.args_.dim)
                   use cin = new BinaryReader(System.Console.OpenStandardInput())
-                  let word = String()
-                  while cin.NotEOF() do
-                    let c = cin.ReadByte()
-                    if c = 0uy 
-                    then getVector(state, vec, word)
-                         yield vec
-                         word.Clear()
-                    else word.Add(c)
+                  for word in cin.readWords() do
+                    getVector(state, vec, word)
+                    yield vec
             }
 
     let textVectors state rng=

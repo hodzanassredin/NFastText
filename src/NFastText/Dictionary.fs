@@ -17,7 +17,6 @@ module Dictionary =
                 {word = word; count = count; etype = etype; subwords = subwords; binary = binary}
        end
 
-    let EOS = ByteString.fromString("</s>")
     let BOW = ByteString.fromString("<")
     let EOW = ByteString.fromString(">")
     let MAX_VOCAB_SIZE = 30000000
@@ -182,30 +181,14 @@ module Dictionary =
                         rng : Random.Mcg31m1,
                         fromStartOnEof : bool)=
           
-          let wordsSeq = inp.readWords()
           seq{
-                let mutable words = ResizeArray<int>()
-                let mutable labels = ResizeArray<int>()
-                let MAX_LINE_SIZE = if args.model <> model_name.sup
+                let max_line_size = if args.model <> model_name.sup
                                     then MAX_LINE_SIZE
                                     else System.Int32.MaxValue
-                let linesSeq = seq{
-                    let en = wordsSeq.GetEnumerator()
-                    let mutable notEof = en.MoveNext()
-                    while notEof do
-                        yield seq{
-                            let mutable wordsCount = 0
-                            while notEof && (en.Current.Eq EOS |> not) && wordsCount < MAX_LINE_SIZE do
-                                yield en.Current
-                                notEof <- en.MoveNext()
-                                wordsCount <- wordsCount + 1
-                        }
-                        if en.Current.Eq EOS then notEof <- en.MoveNext()
-                        
-                }
-                for line in linesSeq do
-                    words <- ResizeArray<int>()
-                    labels <- ResizeArray<int>()
+                
+                for line in inp.readLines(max_line_size, fromStartOnEof) do
+                    let words = ResizeArray<int>()
+                    let labels = ResizeArray<int>()
                     let ids = line |> Seq.map x.getId
                                    |> Seq.where (fun wid -> wid >= 0)
                     for wid in ids do
@@ -215,10 +198,6 @@ module Dictionary =
                         if etype = entry_type.label 
                         then labels.Add(wid - nwords_)
                     yield words, labels
-
-                if fromStartOnEof 
-                then inp.MoveAbs(0L) 
-                     yield! x.getLines(inp, rng, fromStartOnEof)
           }
 
 
