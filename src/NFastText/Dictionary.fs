@@ -186,24 +186,36 @@ module Dictionary =
           seq{
                 let mutable words = ResizeArray<int>()
                 let mutable labels = ResizeArray<int>()
-                for token in wordsSeq do
-                    if token.Eq EOS 
-                    then yield words, labels
-                         words <- ResizeArray<int>()
-                         labels <- ResizeArray<int>()
-                    else let wid = x.getId(token)
-                         if wid >= 0 
-                         then let etype = x.getType(wid)
-                              if etype = entry_type.word && not (x.discard(wid, rng.Sample()))
-                              then words.Add(wid)
-                              if etype = entry_type.label 
-                              then labels.Add(wid - nwords_)
-                              if words.Count > MAX_LINE_SIZE && args.model <> model_name.sup
-                              then yield words, labels
-                                   words <- ResizeArray<int>()
-                                   labels <- ResizeArray<int>()
+                let MAX_LINE_SIZE = if args.model <> model_name.sup
+                                    then MAX_LINE_SIZE
+                                    else System.Int32.MaxValue
+                let linesSeq = seq{
+                    let en = wordsSeq.GetEnumerator()
+                    let mutable notEof = en.MoveNext()
+                    while notEof do
+                        yield seq{
+                            let mutable wordsCount = 0
+                            while notEof && (en.Current.Eq EOS |> not) && wordsCount < MAX_LINE_SIZE do
+                                yield en.Current
+                                notEof <- en.MoveNext()
+                                wordsCount <- wordsCount + 1
+                        }
+                        if en.Current.Eq EOS then notEof <- en.MoveNext()
+                        
+                }
+                for line in linesSeq do
+                    words <- ResizeArray<int>()
+                    labels <- ResizeArray<int>()
+                    let ids = line |> Seq.map x.getId
+                                   |> Seq.where (fun wid -> wid >= 0)
+                    for wid in ids do
+                        let etype = x.getType(wid)
+                        if etype = entry_type.word && not (x.discard(wid, rng.Sample()))
+                        then words.Add(wid)
+                        if etype = entry_type.label 
+                        then labels.Add(wid - nwords_)
+                    yield words, labels
 
-                yield words, labels
                 if fromStartOnEof 
                 then inp.MoveAbs(0L) 
                      yield! x.getLines(inp, rng, fromStartOnEof)
