@@ -3,16 +3,16 @@
 [<AutoOpen>]
 module ByteString =
 
-    type String = ResizeArray<byte>
+    type String = ResizeArray<char>
     open System.Runtime.CompilerServices
-    let fromString(s : string) = String(System.Text.Encoding.UTF8.GetBytes(s))
+    let fromString(s : string) = String(s.ToCharArray())
     
     [<Extension>]
     type ArrayExts () =
         [<Extension>]
         static member Clear(this : String) = this.RemoveRange(0, this.Count)
         [<Extension>]
-        static member Copy(this : String) = ResizeArray<byte>(this.ToArray())
+        static member Copy(this : String) = ResizeArray<char>(this.ToArray())
         [<Extension>]
         static member StartsWith(this : String, sub : String) = 
             let mutable i = 0
@@ -23,8 +23,7 @@ module ByteString =
                  i = sub.Count
 
         [<Extension>]
-        static member ToStr(this : String) = 
-            System.Text.Encoding.UTF8.GetString(this.ToArray())
+        static member ToStr(this : String) = System.String.Join("", this)
 
         [<Extension>]
         static member Hash(this : String) = 

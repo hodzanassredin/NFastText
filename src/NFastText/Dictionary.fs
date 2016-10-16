@@ -97,20 +97,18 @@ module Dictionary =
       member x.computeNgrams(word : String, ngrams : ResizeArray<int>) =
           for i = 0 to word.Count - 1 do
             let ngram = String()
-            if (word.[i] &&& 0xC0uy) = 0x80uy  then ()
-            else
-                let mutable j = i
-                let mutable n = 1
-                while j < word.Count && n <= args.maxn do
-                  ngram.Add(word.[j])
-                  j <- j + 1
-                  while j < word.Count && (word.[j] &&& 0xC0uy) = 0x80uy do
+            let mutable j = i
+            let mutable n = 1
+            while j < word.Count && n <= args.maxn do
+                ngram.Add(word.[j])
+                j <- j + 1
+                while j < word.Count do
                     ngram.Add(word.[j])
                     j <- j + 1
-                  if n >= args.minn
-                  then let h : int = int(ngram.Hash() % uint32(args.bucket)) 
-                       ngrams.Add(nwords_ + h)
-                  n <- n + 1
+                if n >= args.minn
+                then let h : int = int(ngram.Hash() % uint32(args.bucket)) 
+                     ngrams.Add(nwords_ + h)
+                n <- n + 1
 
       member x.initNgrams() =
           for i = 0 to size_ - 1 do
@@ -213,7 +211,8 @@ module Dictionary =
           out.Write(ntokens_)
           for i = 0 to size_ - 1 do
             let e = words_.[i]
-            out.Write(e.word.ToArray())
+            let bytes = System.Text.Encoding.UTF8.GetBytes(e.word.ToStr())
+            out.Write(bytes)
             out.Write(0uy)
             out.Write(e.count)
             out.Write(byte(e.etype))
@@ -227,11 +226,12 @@ module Dictionary =
           nlabels_ <- inp.ReadInt32()
           ntokens_ <- inp.ReadInt32()
           for i = 0 to size_ - 1 do
-            let word = String()
+            let utf8word = ResizeArray<byte>()
             let mutable c = inp.ReadByte()
             while c <> 0uy do
-              word.Add(c)
+              utf8word.Add(c)
               c <- inp.ReadByte()
+            let word = String(System.Text.Encoding.UTF8.GetString(utf8word.ToArray()))
             let count = inp.ReadInt64()
             let etype : entry_type = LanguagePrimitives.EnumOfValue <| inp.ReadByte()
             words_.Add(Entry(word, count, etype, ResizeArray(), false))

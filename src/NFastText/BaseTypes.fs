@@ -17,44 +17,45 @@ module BaseTypes =
 
     type BinaryReader (s : System.IO.Stream) = 
         let EOS = ByteString.fromString("</s>")
-        
+        let r = new StreamReader(s)
         let buff_size = 10000000
-        let buff : byte[] = Array.zeroCreate buff_size 
-        let len = s.Length
+        let buff : char[] = Array.zeroCreate buff_size 
+
         let mutable pos = s.Position
         let mutable buff_pos = pos
+        let mutable lasBlockSize = 0
+        let read_next_block() =
+            lasBlockSize <- r.Read(buff, 0, buff_size) 
         do
-            s.Read(buff, 0, buff_size) |>ignore
+            read_next_block()
         new(filename) = let stream = System.IO.File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
                         new BinaryReader(stream)
 
-        member private x.ReadByte() = 
-                              if pos >= len 
+        member private x.ReadByte() : char = 
+                              if x.EOF()
                               then raise <| System.IO.EndOfStreamException()
                               let i = int(pos - buff_pos)
                               if i < 0 //unget handle
                               then pos <- 0L
-                                   0x0auy // \n
+                                   '\n'
                               elif i < buff_size 
                               then pos <- pos + 1L
                                    buff.[i]
-                              else s.Read(buff, 0, buff_size) |>ignore
+                              else read_next_block()
                                    buff_pos <- pos
                                    pos <- pos + 1L
                                    buff.[0]
 
-        member x.EOF() = pos >= len
-        member x.NotEOF() = pos < len
-        member x.MoveAbs(l) = if l >= buff_pos && l < (buff_pos + int64(buff_size))
-                              then pos <- l
-                              else s.Position <- l
-                                   pos <- l
-                                   buff_pos <- l
-                                   s.Read(buff, 0, buff_size) |>ignore
+        member x.EOF() = lasBlockSize < int(pos - buff_pos)
+        member x.NotEOF() = not <| x.EOF()
+        member x.MoveAbs(l) = s.Position <- l
+                              pos <- l
+                              buff_pos <- l
+                              read_next_block()
 
         member x.Unget() = pos <- pos - 1L
                            
-        member x.Length = len
+        member x.Length = s.Length
         member x.Close() = s.Close()
 
         interface System.IDisposable with 
@@ -67,24 +68,24 @@ module BaseTypes =
         //        '\f'	(0x0c)	feed (FF)
         //        '\r'	(0x0d)	carriage return (CR)
 
-        static member isspace(c : byte) = 
-          c = 0x20uy || c = 0x09uy || c = 0x0auy || c = 0x0buy || c = 0x0cuy || c = 0x0duy
+        static member isspace(c : char) = 
+          c = ' ' || c = '\t' || c = '\n' || c = '\v' || c = '\f' || c = '\r'
 
         member x.readWordInt(inp : BinaryReader, word : String) = 
             if inp.EOF() 
             then word.Count > 0
             else
                 let c = inp.ReadByte()
-                if BinaryReader.isspace(c) || c = 0uy 
+                if BinaryReader.isspace(c) || int(c) = 0 
                 then
                     if word.Count = 0
                     then
-                        if c = 0x0auy // \n
+                        if c = '\n' // \n
                         then word.AddRange(EOS)
                              true
                         else x.readWordInt(inp, word)
                     else
-                        if c = 0x0auy // \n
+                        if c = '\n' // \n
                         then inp.Unget()
                         true
                 else word.Add(c)
@@ -109,7 +110,7 @@ module BaseTypes =
                                 notEof <- en.MoveNext()
                                 wordsCount <- wordsCount + 1
                         }
-                        if en.Current.Eq EOS then notEof <- en.MoveNext()
+                        if en.Current <> null && en.Current.Eq EOS then notEof <- en.MoveNext()
                     if fromStartOnEof 
                     then x.MoveAbs(0L) 
                          yield! x.readLines(max_line_size, fromStartOnEof)
