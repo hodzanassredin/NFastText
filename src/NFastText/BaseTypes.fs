@@ -71,7 +71,7 @@ module BaseTypes =
         static member isspace(c : char) = 
           c = ' ' || c = '\t' || c = '\n' || c = '\v' || c = '\f' || c = '\r'
 
-        member x.readWordInt(inp : BinaryReader, word : String) = 
+        member x.readWordInt(inp : BinaryReader, word : ResizeArray<char>) = 
             if inp.EOF() 
             then word.Count > 0
             else
@@ -92,10 +92,10 @@ module BaseTypes =
                      x.readWordInt(inp, word)
 
         member x.readWords() = 
-          let word = String()
+          let word = ResizeArray<char>()
           seq{
             while x.readWordInt(x, word) do
-                yield word.Copy()
+                yield System.String.Join("", word)
                 word.Clear()
           }
         member x.readLines(max_line_size, fromStartOnEof) =

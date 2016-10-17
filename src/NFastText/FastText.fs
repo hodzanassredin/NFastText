@@ -5,6 +5,7 @@ module FastTextM =
     open Dictionary
     open Args
     open Model
+    open System
     open System.Collections.Generic
     open System.Diagnostics
     open System.Threading

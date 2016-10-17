@@ -1,5 +1,6 @@
 ﻿namespace NFastText
 module Dictionary =
+    open System
     open Args
     type id_type = int
     type entry_type = word=0uy | label=1uy
@@ -95,14 +96,14 @@ module Dictionary =
 
 
       member x.computeNgrams(word : String, ngrams : ResizeArray<int>) =
-          for i = 0 to word.Count - 1 do
-            let ngram = String()
+          for i = 0 to word.Length - 1 do
+            let ngram = ResizeArray<char>()
             let mutable j = i
             let mutable n = 1
-            while j < word.Count && n <= args.maxn do
+            while j < word.Length && n <= args.maxn do
                 ngram.Add(word.[j])
                 j <- j + 1
-                while j < word.Count do
+                while j < word.Length do
                     ngram.Add(word.[j])
                     j <- j + 1
                 if n >= args.minn
@@ -211,7 +212,7 @@ module Dictionary =
           out.Write(ntokens_)
           for i = 0 to size_ - 1 do
             let e = words_.[i]
-            let bytes = System.Text.Encoding.UTF8.GetBytes(e.word.ToStr())
+            let bytes = System.Text.Encoding.UTF8.GetBytes(e.word)
             out.Write(bytes)
             out.Write(0uy)
             out.Write(e.count)
@@ -231,7 +232,7 @@ module Dictionary =
             while c <> 0uy do
               utf8word.Add(c)
               c <- inp.ReadByte()
-            let word = String(System.Text.Encoding.UTF8.GetString(utf8word.ToArray()))
+            let word = System.Text.Encoding.UTF8.GetString(utf8word.ToArray())
             let count = inp.ReadInt64()
             let etype : entry_type = LanguagePrimitives.EnumOfValue <| inp.ReadByte()
             words_.Add(Entry(word, count, etype, ResizeArray(), false))
