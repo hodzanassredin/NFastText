@@ -26,7 +26,7 @@ module Dictionary =
     let BOW = "<"
     let EOW = ">"
     let MAX_VOCAB_SIZE = 30000000
-    let MAX_LINE_SIZE = 1024
+    
     type Dictionary(args : Args, label : String, verbose : int) =
       let mutable size_ = 0
       let mutable nwords_ = 0

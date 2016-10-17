@@ -85,59 +85,22 @@ module FastTextM =
             ofs.WriteLine(sprintf "%s %A" (word.ToString()) vec)
           ofs.Close()
 
-    let streamToWords (s:Stream) =
-          let r = new StreamReader(s)
-          seq{
-            let mutable line = r.ReadLine()
-            while line <> null do
-                yield! line.Split([|' '; '\t'; '\n'; '\v'; '\f'; '\r'|])
-                line <- r.ReadLine()
-          }
 
-    let wordVectors(state) =
+
+    let wordVectors(state) words=
             seq{
                   let vec = createVector(state.args_.dim)
-                  use cin = System.Console.OpenStandardInput()
-                  for word in streamToWords cin do
+                  
+                  for word in words do
                     getVector(state, vec, word)
                     yield vec
             }
 
-    let split length (xs: seq<'T>) =
-        let rec loop xs =
-            seq{
-                yield Seq.truncate length xs 
-                match Seq.length xs <= length with
-                | false -> yield! loop (Seq.skip length xs)
-                | true -> ()
-            }
-        loop xs
-
-
-    let rec streamToLines state (s:Stream) fromStartOnEof = 
-        let r = new StreamReader(s)
-        let rec loop() =
-            let max_line_size = if state.args_.model <> model_name.sup
-                                then MAX_LINE_SIZE
-                                else System.Int32.MaxValue
-            seq{
-                    let mutable line = r.ReadLine()
-                    while line <> null do
-                        let lnWords = line.Split([|' '; '\t'; '\n'; '\v'; '\f'; '\r'|])
-                        for chunk in split max_line_size lnWords do
-                            yield chunk 
-                        line <- r.ReadLine()
-
-                    if fromStartOnEof 
-                    then s.Position <- 0L
-                         yield! loop()
-                  }
-        loop()
-    let textVectors state rng=
+    
+    let textVectors state rng src =
             seq{
                   let vec = createVector(state.args_.dim)
 
-                  let src = streamToLines state (System.Console.OpenStandardInput()) false
                   for line,_ in state.dict_.getLines(src, rng) do
                     state.dict_.addNgrams(line, state.args_.wordNgrams)
                     vec.Zero()
@@ -148,10 +111,7 @@ module FastTextM =
                     yield vec
             }
 
-    let getVectors state rng =
-          if state.args_.model = model_name.sup 
-          then textVectors state rng
-          else wordVectors state 
+
 
     type FastText(state : FastTextState, label, verbose) =  
         let mutable model_ = Model(state.input_, state.output_, state.args_, 1)
@@ -200,13 +160,12 @@ module FastTextM =
               if c <> 0 && w + c >= 0 && w + c < line.Count
               then model.update(ngrams.ToArray(), line.[w + c], lr);
         
-        member x.test(filename : string, k : int) =
+        member x.test(lines, k : int) =
           let mutable nexamples = 0
           let mutable nlabels = 0
           let mutable precision = 0.0f
-          let stream = System.IO.File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
-          let src = streamToLines state stream false
-          for line,labels in state.dict_.getLines(src, model_.rng) do
+
+          for line,labels in state.dict_.getLines(lines, model_.rng) do
             state.dict_.addNgrams(line, state.args_.wordNgrams);
             if (labels.Count > 0 && line.Count > 0) 
             then
@@ -225,9 +184,8 @@ module FastTextM =
           }
 
           
-        member x.predict(filename : string, k : int) =
-          let stream = System.IO.File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
-          let src = streamToLines state stream false
+        member x.predict(src, k : int) =
+          
 
           seq{
               for line,_ in state.dict_.getLines(src, model_.rng) do
@@ -246,10 +204,8 @@ module FastTextM =
                     yield Some res
           }
 
-        member x.trainThread(input : string, threadId : int, thread : int, verbose : int) =
-          let stream = System.IO.File.Open(input, FileMode.Open, FileAccess.Read, FileShare.Read)
-          stream.Position <- int64(threadId) * stream.Length / int64(thread)
-          let src = streamToLines state stream true
+        member x.trainThread(src, threadId : int, thread : int, verbose : int) =
+
 
           let model = Model(state.input_, state.output_, state.args_, threadId)
           if state.args_.model = model_name.sup
@@ -284,14 +240,11 @@ module FastTextM =
           then x.printInfo(1.0f, model.getLoss(), thread)
                printfn ""
 
-        member x.train(args : TrainArgs) =
+        member x.train words (args : TrainArgs) streamToLines =
           state.args_ <- args.args
           state.dict_ <- Dictionary(state.args_, label, verbose)
-          let stream = System.IO.File.Open(args.input, FileMode.Open, FileAccess.Read, FileShare.Read)
-
-          let words = streamToWords stream
+          
           state.dict_.readFromFile(words)
-          stream.Close()
 
           state.input_ <- Matrix.create(state.dict_.nwords() + int(state.args_.bucket), state.args_.dim)
           if state.args_.model = model_name.sup
@@ -304,7 +257,10 @@ module FastTextM =
           tokenCount <- 0L
           let threads = ResizeArray<Thread>()
           for i = 0 to args.thread - 1 do
-            let t = Thread(fun () -> x.trainThread(args.input,i, args.thread, verbose))
+            let stream = System.IO.File.Open(args.input, FileMode.Open, FileAccess.Read, FileShare.Read)
+            stream.Position <- int64(i) * stream.Length / int64(args.thread)
+            let src = streamToLines state.args_.model stream true
+            let t = Thread(fun () -> x.trainThread(src,i, args.thread, verbose))
             t.Start()
             threads.Add(t)
           for it in threads do
