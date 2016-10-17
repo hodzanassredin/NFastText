@@ -39,7 +39,7 @@ module FastTextM =
     }
 
     let saveState filename state =
-          use ofs = try binaryWriter(filename) 
+          use ofs = try  new System.IO.BinaryWriter(System.IO.File.Open(filename, System.IO.FileMode.Create))                    
                     with ex -> failwith "Model file cannot be opened for saving!"
           Args.save(state.args_, ofs)
           state.dict_.save(ofs)
@@ -48,7 +48,8 @@ module FastTextM =
           ofs.Close()
 
     let loadState(filename : string, label, verbose) =
-          use ifs = try binaryReader(filename) 
+          use ifs = try let s = System.IO.File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
+                        new System.IO.BinaryReader(s)
                     with ex -> failwith "Model file cannot be opened for loading!"
           try
               let args = Args.load(ifs)
@@ -84,20 +85,60 @@ module FastTextM =
             ofs.WriteLine(sprintf "%s %A" (word.ToString()) vec)
           ofs.Close()
 
+    let streamToWords (s:Stream) =
+          let r = new StreamReader(s)
+          seq{
+            let mutable line = r.ReadLine()
+            while line <> null do
+                yield! line.Split([|' '; '\t'; '\n'; '\v'; '\f'; '\r'|])
+                line <- r.ReadLine()
+          }
+
     let wordVectors(state) =
             seq{
                   let vec = createVector(state.args_.dim)
-                  use cin = new BaseTypes.BinaryReader(System.Console.OpenStandardInput())
-                  for word in cin.readWords() do
+                  use cin = System.Console.OpenStandardInput()
+                  for word in streamToWords cin do
                     getVector(state, vec, word)
                     yield vec
             }
 
+    let split length (xs: seq<'T>) =
+        let rec loop xs =
+            seq{
+                yield Seq.truncate length xs 
+                match Seq.length xs <= length with
+                | false -> yield! loop (Seq.skip length xs)
+                | true -> ()
+            }
+        loop xs
+
+
+    let rec streamToLines state (s:Stream) fromStartOnEof = 
+        let r = new StreamReader(s)
+        let rec loop() =
+            let max_line_size = if state.args_.model <> model_name.sup
+                                then MAX_LINE_SIZE
+                                else System.Int32.MaxValue
+            seq{
+                    let mutable line = r.ReadLine()
+                    while line <> null do
+                        let lnWords = line.Split([|' '; '\t'; '\n'; '\v'; '\f'; '\r'|])
+                        for chunk in split max_line_size lnWords do
+                            yield chunk 
+                        line <- r.ReadLine()
+
+                    if fromStartOnEof 
+                    then s.Position <- 0L
+                         yield! loop()
+                  }
+        loop()
     let textVectors state rng=
             seq{
                   let vec = createVector(state.args_.dim)
-                  use cin = new BaseTypes.BinaryReader(System.Console.OpenStandardInput())
-                  for line,_ in state.dict_.getLines(cin, rng, false) do
+
+                  let src = streamToLines state (System.Console.OpenStandardInput()) false
+                  for line,_ in state.dict_.getLines(src, rng) do
                     state.dict_.addNgrams(line, state.args_.wordNgrams)
                     vec.Zero()
                     for i = 0 to line.Count - 1 do
@@ -164,10 +205,8 @@ module FastTextM =
           let mutable nlabels = 0
           let mutable precision = 0.0f
           let stream = System.IO.File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
-          use ifs = try new BaseTypes.BinaryReader(stream)
-                    with ex -> failwith "Test file cannot be opened!"
-          
-          for line,labels in state.dict_.getLines(ifs, model_.rng, false) do
+          let src = streamToLines state stream false
+          for line,labels in state.dict_.getLines(src, model_.rng) do
             state.dict_.addNgrams(line, state.args_.wordNgrams);
             if (labels.Count > 0 && line.Count > 0) 
             then
@@ -178,7 +217,6 @@ module FastTextM =
                 then precision <- precision + 1.0f
               nexamples <- nexamples + 1
               nlabels <- nlabels + labels.Count
-          ifs.Close()
           {
             precision = precision / float32(k * nexamples)
             recall = precision / float32(nlabels)
@@ -189,10 +227,10 @@ module FastTextM =
           
         member x.predict(filename : string, k : int) =
           let stream = System.IO.File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
-          let ifs = try new BaseTypes.BinaryReader(stream)
-                    with ex -> failwith "Test file cannot be opened!"
+          let src = streamToLines state stream false
+
           seq{
-              for line,_ in state.dict_.getLines(ifs, model_.rng, false) do
+              for line,_ in state.dict_.getLines(src, model_.rng) do
                 state.dict_.addNgrams(line, state.args_.wordNgrams)
                 if line.Count = 0 
                 then yield None
@@ -206,13 +244,12 @@ module FastTextM =
                       let prob = exp(predictions.[i].Key)
                       res <- (l,prob) :: res
                     yield Some res
-              ifs.Close()
           }
 
         member x.trainThread(input : string, threadId : int, thread : int, verbose : int) =
           let stream = System.IO.File.Open(input, FileMode.Open, FileAccess.Read, FileShare.Read)
           stream.Position <- int64(threadId) * stream.Length / int64(thread)
-          use ifs = new BaseTypes.BinaryReader(stream)
+          let src = streamToLines state stream true
 
           let model = Model(state.input_, state.output_, state.args_, threadId)
           if state.args_.model = model_name.sup
@@ -222,7 +259,7 @@ module FastTextM =
           let ntokens = state.dict_.ntokens()
           let mutable localTokenCount = 0
 
-          let lineSrc = state.dict_.getLines(ifs, model.rng, true).GetEnumerator()
+          let lineSrc = state.dict_.getLines(src, model.rng).GetEnumerator()
           while tokenCount < int64(state.args_.epoch * ntokens) do
             let progress = float32(tokenCount) / float32(state.args_.epoch * ntokens)
             let lr = state.args_.lr * (1.0f - progress)
@@ -246,17 +283,15 @@ module FastTextM =
           if threadId = 0 
           then x.printInfo(1.0f, model.getLoss(), thread)
                printfn ""
-          ifs.Close()
 
         member x.train(args : TrainArgs) =
           state.args_ <- args.args
           state.dict_ <- Dictionary(state.args_, label, verbose)
           let stream = System.IO.File.Open(args.input, FileMode.Open, FileAccess.Read, FileShare.Read)
-          use ifs = try new BaseTypes.BinaryReader(stream)
-                    with ex -> failwith "Input file cannot be opened!"
-          let words = ifs.readWords()
+
+          let words = streamToWords stream
           state.dict_.readFromFile(words)
-          ifs.Close()
+          stream.Close()
 
           state.input_ <- Matrix.create(state.dict_.nwords() + int(state.args_.bucket), state.args_.dim)
           if state.args_.model = model_name.sup

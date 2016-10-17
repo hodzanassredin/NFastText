@@ -183,16 +183,11 @@ module Dictionary =
               h <- h * 116049371uL + uint64(line.[j])
               line.Add(nwords_ + int(h % uint64(args.bucket)))
 
-      member x.getLines(inp : BinaryReader, 
-                        rng : Random.Mcg31m1,
-                        fromStartOnEof : bool)=
+      member x.getLines(src : seq<seq<string>>, 
+                        rng : Random.Mcg31m1)=
           
           seq{
-                let max_line_size = if args.model <> model_name.sup
-                                    then MAX_LINE_SIZE
-                                    else System.Int32.MaxValue
-                
-                for line in inp.readLines(max_line_size, fromStartOnEof) do
+                for line in src do
                     let words = ResizeArray<int>()
                     let labels = ResizeArray<int>()
                     let ids = line |> Seq.map x.getId
