@@ -16,7 +16,7 @@ module BaseTypes =
             then this.Capacity <- this.Count
 
     type BinaryReader (s : System.IO.Stream) = 
-        let EOS = ByteString.fromString("</s>")
+        let EOS = "</s>"
         let r = new StreamReader(s)
         let buff_size = 10000000
         let buff : char[] = Array.zeroCreate buff_size 
@@ -105,12 +105,12 @@ module BaseTypes =
                     while notEof do
                         yield seq{
                             let mutable wordsCount = 0
-                            while notEof && (en.Current.Eq EOS |> not) && wordsCount < max_line_size do
+                            while notEof && (en.Current = EOS |> not) && wordsCount < max_line_size do
                                 yield en.Current
                                 notEof <- en.MoveNext()
                                 wordsCount <- wordsCount + 1
                         }
-                        if en.Current <> null && en.Current.Eq EOS then notEof <- en.MoveNext()
+                        if en.Current <> null && en.Current = EOS then notEof <- en.MoveNext()
                     if fromStartOnEof 
                     then x.MoveAbs(0L) 
                          yield! x.readLines(max_line_size, fromStartOnEof)

@@ -5,7 +5,12 @@ module Dictionary =
     type id_type = int
     type entry_type = word=0uy | label=1uy
     
-
+    let getHash(this : System.Collections.Generic.IEnumerable<char>) = 
+        let mutable h = 2166136261u
+        for c in this do
+            h <- h ^^^ uint32(c)
+            h <- h * 16777619u
+        h
 
     type Entry =
        struct
@@ -18,8 +23,8 @@ module Dictionary =
                 {word = word; count = count; etype = etype; subwords = subwords; binary = binary}
        end
 
-    let BOW = ByteString.fromString("<")
-    let EOW = ByteString.fromString(">")
+    let BOW = "<"
+    let EOW = ">"
     let MAX_VOCAB_SIZE = 30000000
     let MAX_LINE_SIZE = 1024
     type Dictionary(args : Args, label : String, verbose : int) =
@@ -32,8 +37,8 @@ module Dictionary =
       let word2int_ = ResizeArray<int>(Array.create MAX_VOCAB_SIZE -1)
 
       member x.find(w : String) =
-          let mutable h = int(w.Hash() % uint32(MAX_VOCAB_SIZE))
-          while word2int_.[h] <> -1 && not(words_.[word2int_.[h]].word.Eq w) do
+          let mutable h = int(getHash(w) % uint32(MAX_VOCAB_SIZE))
+          while word2int_.[h] <> -1 && not(words_.[word2int_.[h]].word = w) do
             h <- (h + 1) % MAX_VOCAB_SIZE
           h
 
@@ -68,7 +73,7 @@ module Dictionary =
           let mutable ngrams = ResizeArray<int>()
           let i = x.getId(word)
           if i >= 0 then ngrams <- words_.[i].subwords
-          else x.computeNgrams(word.Wrap(BOW,EOW), ngrams)
+          else x.computeNgrams(BOW + word + EOW, ngrams)
           ngrams
 
       member x.discard(id : int, rand : float32) =
@@ -107,13 +112,13 @@ module Dictionary =
                     ngram.Add(word.[j])
                     j <- j + 1
                 if n >= args.minn
-                then let h : int = int(ngram.Hash() % uint32(args.bucket)) 
+                then let h : int = int(getHash(ngram) % uint32(args.bucket)) 
                      ngrams.Add(nwords_ + h)
                 n <- n + 1
 
       member x.initNgrams() =
           for i = 0 to size_ - 1 do
-            let word = words_.[i].word.Wrap(BOW,EOW)
+            let word = BOW + words_.[i].word + EOW
             words_.[i].subwords.Add(i);
             x.computeNgrams(word, words_.[i].subwords)
 

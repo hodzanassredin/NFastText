@@ -200,7 +200,7 @@ module FastTextM =
                     let mutable res = []
                     for i = 0 to predictions.Count - 1 do
                       if i > 0 then printf " "
-                      let l = state.dict_.getLabel(predictions.[i].Value).ToStr()
+                      let l = state.dict_.getLabel(predictions.[i].Value)
                       let prob = exp(predictions.[i].Key)
                       res <- (l,prob) :: res
                     yield Some res
