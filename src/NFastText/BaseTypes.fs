@@ -4,46 +4,18 @@ module BaseTypes =
     open System.Runtime.CompilerServices
     open System.IO
 
+    let split length (xs: seq<'T>) =
+        let rec loop xs =
+            seq{
+                yield Seq.truncate length xs 
+                match Seq.length xs <= length with
+                | false -> yield! loop (Seq.skip length xs)
+                | true -> ()
+            }
+        loop xs
 
     type BinaryReader (s : System.IO.Stream) = 
-        let EOS = "</s>"
         let r = new StreamReader(s)
-        let buff_size = 10000000
-        let buff : char[] = Array.zeroCreate buff_size 
-
-        let mutable pos = s.Position
-        let mutable buff_pos = pos
-        let mutable lasBlockSize = 0
-        let read_next_block() =
-            lasBlockSize <- r.Read(buff, 0, buff_size) 
-        do
-            read_next_block()
-        new(filename) = let stream = System.IO.File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
-                        new BinaryReader(stream)
-
-        member private x.ReadByte() : char = 
-                              if x.EOF()
-                              then raise <| System.IO.EndOfStreamException()
-                              let i = int(pos - buff_pos)
-                              if i < 0 //unget handle
-                              then pos <- 0L
-                                   '\n'
-                              elif i < buff_size 
-                              then pos <- pos + 1L
-                                   buff.[i]
-                              else read_next_block()
-                                   buff_pos <- pos
-                                   pos <- pos + 1L
-                                   buff.[0]
-
-        member x.EOF() = lasBlockSize < int(pos - buff_pos)
-        member x.NotEOF() = not <| x.EOF()
-        member x.MoveAbs(l) = s.Position <- l
-                              pos <- l
-                              buff_pos <- l
-                              read_next_block()
-
-        member x.Unget() = pos <- pos - 1L
                            
         member x.Length = s.Length
         member x.Close() = s.Close()
@@ -51,59 +23,27 @@ module BaseTypes =
         interface System.IDisposable with 
             member this.Dispose() = s.Dispose()
 
-        //        ' '	(0x20)	space (SPC)
-        //        '\t'	(0x09)	horizontal tab (TAB)
-        //        '\n'	(0x0a)	newline (LF)
-        //        '\v'	(0x0b)	vertical tab (VT)
-        //        '\f'	(0x0c)	feed (FF)
-        //        '\r'	(0x0d)	carriage return (CR)
 
-        static member isspace(c : char) = 
-          c = ' ' || c = '\t' || c = '\n' || c = '\v' || c = '\f' || c = '\r'
-
-        member x.readWordInt(inp : BinaryReader, word : ResizeArray<char>) = 
-            if inp.EOF() 
-            then word.Count > 0
-            else
-                let c = inp.ReadByte()
-                if BinaryReader.isspace(c) || int(c) = 0 
-                then
-                    if word.Count = 0
-                    then
-                        if c = '\n' // \n
-                        then word.AddRange(EOS)
-                             true
-                        else x.readWordInt(inp, word)
-                    else
-                        if c = '\n' // \n
-                        then inp.Unget()
-                        true
-                else word.Add(c)
-                     x.readWordInt(inp, word)
 
         member x.readWords() = 
-          let word = ResizeArray<char>()
           seq{
-            while x.readWordInt(x, word) do
-                yield System.String.Join("", word)
-                word.Clear()
+            let mutable line = r.ReadLine()
+            while line <> null do
+                yield! line.Split([|' '; '\t'; '\n'; '\v'; '\f'; '\r'|])
+                line <- r.ReadLine()
           }
         member x.readLines(max_line_size, fromStartOnEof) =
              seq{
-                    let en = x.readWords().GetEnumerator()
-                    let mutable notEof = en.MoveNext()
-                    while notEof do
-                        yield seq{
-                            let mutable wordsCount = 0
-                            while notEof && (en.Current = EOS |> not) && wordsCount < max_line_size do
-                                yield en.Current
-                                notEof <- en.MoveNext()
-                                wordsCount <- wordsCount + 1
-                        }
-                        if en.Current <> null && en.Current = EOS then notEof <- en.MoveNext()
-                    if fromStartOnEof 
-                    then x.MoveAbs(0L) 
-                         yield! x.readLines(max_line_size, fromStartOnEof)
+                let mutable line = r.ReadLine()
+                while line <> null do
+                    let lnWords = line.Split([|' '; '\t'; '\n'; '\v'; '\f'; '\r'|])
+                    for chunk in split max_line_size lnWords do
+                        yield chunk 
+                    line <- r.ReadLine()
+
+                if fromStartOnEof 
+                then s.Position <- 0L
+                     yield! x.readLines(max_line_size, fromStartOnEof)
               }
 
 

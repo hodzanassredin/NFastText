@@ -9,6 +9,7 @@ module FastTextM =
     open System.Collections.Generic
     open System.Diagnostics
     open System.Threading
+    open System.IO
 
     type TrainArgs = {
         input : string
@@ -86,7 +87,7 @@ module FastTextM =
     let wordVectors(state) =
             seq{
                   let vec = createVector(state.args_.dim)
-                  use cin = new BinaryReader(System.Console.OpenStandardInput())
+                  use cin = new BaseTypes.BinaryReader(System.Console.OpenStandardInput())
                   for word in cin.readWords() do
                     getVector(state, vec, word)
                     yield vec
@@ -95,7 +96,7 @@ module FastTextM =
     let textVectors state rng=
             seq{
                   let vec = createVector(state.args_.dim)
-                  use cin = new BinaryReader(System.Console.OpenStandardInput())
+                  use cin = new BaseTypes.BinaryReader(System.Console.OpenStandardInput())
                   for line,_ in state.dict_.getLines(cin, rng, false) do
                     state.dict_.addNgrams(line, state.args_.wordNgrams)
                     vec.Zero()
@@ -162,8 +163,8 @@ module FastTextM =
           let mutable nexamples = 0
           let mutable nlabels = 0
           let mutable precision = 0.0f
-
-          use ifs = try new BaseTypes.BinaryReader(filename)
+          let stream = System.IO.File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
+          use ifs = try new BaseTypes.BinaryReader(stream)
                     with ex -> failwith "Test file cannot be opened!"
           
           for line,labels in state.dict_.getLines(ifs, model_.rng, false) do
@@ -187,7 +188,8 @@ module FastTextM =
 
           
         member x.predict(filename : string, k : int) =
-          use ifs = try new BinaryReader(filename)
+          let stream = System.IO.File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
+          let ifs = try new BaseTypes.BinaryReader(stream)
                     with ex -> failwith "Test file cannot be opened!"
           seq{
               for line,_ in state.dict_.getLines(ifs, model_.rng, false) do
@@ -208,8 +210,9 @@ module FastTextM =
           }
 
         member x.trainThread(input : string, threadId : int, thread : int, verbose : int) =
-          use ifs = new BinaryReader(input)
-          ifs.MoveAbs(int64(threadId) * ifs.Length / int64(thread)) 
+          let stream = System.IO.File.Open(input, FileMode.Open, FileAccess.Read, FileShare.Read)
+          stream.Position <- int64(threadId) * stream.Length / int64(thread)
+          use ifs = new BaseTypes.BinaryReader(stream)
 
           let model = Model(state.input_, state.output_, state.args_, threadId)
           if state.args_.model = model_name.sup
@@ -248,7 +251,8 @@ module FastTextM =
         member x.train(args : TrainArgs) =
           state.args_ <- args.args
           state.dict_ <- Dictionary(state.args_, label, verbose)
-          use ifs = try new BinaryReader(args.input)
+          let stream = System.IO.File.Open(args.input, FileMode.Open, FileAccess.Read, FileShare.Read)
+          use ifs = try new BaseTypes.BinaryReader(stream)
                     with ex -> failwith "Input file cannot be opened!"
           let words = ifs.readWords()
           state.dict_.readFromFile(words)

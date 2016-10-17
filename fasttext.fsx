@@ -22,7 +22,7 @@ let trainArgs = {
                }
         thread =  4
 }
-let label = ByteString.fromString "__label__"
+let label = "__label__"
 let verbose = 2
 let train() =
     let output = "D:/ft/result/dbpedia"
