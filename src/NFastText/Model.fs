@@ -36,7 +36,7 @@ module Model =
         let mutable negpos = 0
         let mutable loss_ = 0.0f
         let mutable nexamples_ = 1
-        let tree  = ResizeArray<Node>()
+        let mutable tree : ResizeArray<Node> = null 
         let negatives = ResizeArray<int>()
 
         let bfloat32 b = if b then 1.f else 0.f
@@ -183,9 +183,10 @@ module Model =
               negative
 
         member x.buildTree(counts : int64[]) =
-              tree.Resize(2 * osz_ - 1)
+              tree <- ResizeArray<Node>(2 * osz_ - 1)
+              
               for i = 0 to 2 * osz_ - 2 do 
-                tree.[i] <- Node(-1,-1,-1,1000000000000000L, false)
+                tree.Add(Node(-1,-1,-1,1000000000000000L, false))
 
 
               for i = 0 to osz_ - 1 do

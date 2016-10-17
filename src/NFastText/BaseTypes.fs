@@ -3,17 +3,7 @@
 module BaseTypes = 
     open System.Runtime.CompilerServices
     open System.IO
-    [<Extension>]
-    type Exts() =
-        [<Extension>]
-        static member Resize(this: ResizeArray<'a>, size : int) = 
-            if this.Count > size
-            then this.RemoveRange(size, this.Count - size)
-            else this.AddRange(System.Linq.Enumerable.Repeat(Unchecked.defaultof<'a>, size - this.Count))
-        [<Extension>]
-        static member ShrinkToFit(this: ResizeArray<'a>) = 
-            if this.Count < this.Capacity
-            then this.Capacity <- this.Count
+
 
     type BinaryReader (s : System.IO.Stream) = 
         let EOS = "</s>"

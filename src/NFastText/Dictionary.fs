@@ -33,7 +33,7 @@ module Dictionary =
       let mutable nlabels_ = 0
       let mutable ntokens_ = 0
       let words_ = ResizeArray<Entry>()
-      let pdiscard_ = ResizeArray<float32>()
+      let mutable pdiscard_ : ResizeArray<float32> = null
       let word2int_ = ResizeArray<int>(Array.create MAX_VOCAB_SIZE -1)
 
       member x.find(w : String) =
@@ -145,8 +145,9 @@ module Dictionary =
                                    then e1.etype.CompareTo(e2.etype)
                                    else -e1.count.CompareTo(e2.count))
           words_.RemoveAll(fun e -> e.etype = entry_type.word && e.count < t) |> ignore
-
-          words_.ShrinkToFit()
+          //shrink
+          if words_.Count < words_.Capacity
+            then words_.Capacity <- words_.Count
           size_ <- 0
           nwords_ <- 0
           nlabels_ <- 0
@@ -162,10 +163,11 @@ module Dictionary =
             )
 
       member x.initTableDiscard() =
-          pdiscard_.Resize(size_)
+          
+          pdiscard_ <- ResizeArray<float32>(size_)
           for i = 0 to size_ - 1 do
             let f = float32(words_.[i].count) / float32(ntokens_)
-            pdiscard_.[i] <- sqrt(args.t / f) + args.t / f
+            pdiscard_.Add(sqrt(args.t / f) + args.t / f)
 
       member x.getCounts(etype : entry_type) =
           let counts = ResizeArray<int64>()
