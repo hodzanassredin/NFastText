@@ -111,28 +111,23 @@ module FastTextM =
                     yield vec
             }
 
-
-
-    type FastText(state : FastTextState, label, verbose) =  
-        let mutable model_ = Model(state.input_, state.output_, state.args_, 1)
-
-        let tokenCount = ref 0L //atomic todo
-        let mutable start = Stopwatch.StartNew() // todo clock_t
-        do
-            if state.args_.model = model_name.sup
+    let createModel state = 
+        let model_ = Model(state.input_, state.output_, state.args_, 1)
+        if state.args_.model = model_name.sup
             then model_.setTargetCounts(state.dict_.getCounts(entry_type.label).ToArray())
             else model_.setTargetCounts(state.dict_.getCounts(entry_type.word).ToArray())
-
-        static member printInfo(start : Stopwatch, tokenCount, state, progress : float32, loss : float32, thread : int) =
-          let t = float32(start.Elapsed.TotalSeconds) 
+        model_
+    
+    let printInfo(seconds, tokenCount, lr, progress : float32, loss : float32, thread : int) =
+          let t = float32(seconds) 
           let wst = float32(tokenCount) / t
-          let lr = state.args_.lr * (1.0f - progress)
+          let lr = lr * (1.0f - progress)
           let eta = int(t / progress * (1.f - progress) / float32(thread))
           let etah = eta / 3600
           let etam = (eta - etah * 3600) / 60
           printf "\rProgress: %.1f%%  words/sec/thread: %.0f  lr: %.6f  loss: %.6f  eta: %dh %dm" (100.f * progress) wst lr loss etah etam
 
-        static member supervised(model : Model, 
+    let supervised(model : Model, 
                                  lr : float32,
                                  line : ResizeArray<int>,
                                  labels : ResizeArray<int>) =
@@ -140,7 +135,7 @@ module FastTextM =
           else let i = model.rng.DiscrUniformSample(0, labels.Count - 1)
                model.update(line.ToArray(), labels.[i], lr)
 
-        static member cbow(state, model : Model, lr : float32, line : ResizeArray<int>) =
+    let cbow(state, model : Model, lr : float32, line : ResizeArray<int>) =
           let bow =  ResizeArray<int>()
           for w = 0 to line.Count - 1 do
             let boundary = model.rng.DiscrUniformSample(1, state.args_.ws)
@@ -151,7 +146,7 @@ module FastTextM =
                    bow.AddRange(ngrams)
             model.update(bow.ToArray(), line.[w], lr)
 
-        static member skipgram(state, model : Model, lr : float32, line : ResizeArray<int>) =
+    let skipgram(state, model : Model, lr : float32, line : ResizeArray<int>) =
           for w = 0 to line.Count - 1 do
             //model.wo.data[7428][99]
             let boundary = model.rng.DiscrUniformSample(1, state.args_.ws)
@@ -160,7 +155,7 @@ module FastTextM =
               if c <> 0 && w + c >= 0 && w + c < line.Count
               then model.update(ngrams.ToArray(), line.[w + c], lr);
         
-        member x.test(lines, k : int) =
+    let test(state, model_ : Model, lines, k : int) =
           let mutable nexamples = 0
           let mutable nlabels = 0
           let mutable precision = 0.0f
@@ -184,9 +179,7 @@ module FastTextM =
           }
 
           
-        member x.predict(src, k : int) =
-          
-
+    let predict(state, model_ : Model, src, k : int) =
           seq{
               for line,_ in state.dict_.getLines(src, model_.rng) do
                 state.dict_.addNgrams(line, state.args_.wordNgrams)
@@ -204,7 +197,7 @@ module FastTextM =
                     yield Some res
           }
 
-        static member trainThread(start : Stopwatch, tokenCount : int64 ref, state, src, threadId : int, thread : int, verbose : int) =
+    let trainThread(start : Stopwatch, tokenCount : int64 ref, state, src, threadId : int, thread : int, verbose : int) =
           let model = Model(state.input_, state.output_, state.args_, threadId)
           if state.args_.model = model_name.sup
           then model.setTargetCounts(state.dict_.getCounts(entry_type.label).ToArray())
@@ -223,22 +216,22 @@ module FastTextM =
             if state.args_.model = model_name.sup
             then
               state.dict_.addNgrams(line, state.args_.wordNgrams)
-              FastText.supervised(model, lr, line, labels)
+              supervised(model, lr, line, labels)
             else if state.args_.model = model_name.cbow
-            then FastText.cbow(state, model, lr, line)
+            then cbow(state, model, lr, line)
             else if state.args_.model = model_name.sg
-            then FastText.skipgram(state, model, lr, line)
+            then skipgram(state, model, lr, line)
             if localTokenCount > state.args_.lrUpdateRate
             then
               tokenCount := !tokenCount + int64(localTokenCount)
               localTokenCount <- 0
               if threadId = 0 && verbose > 1
-              then FastText.printInfo(start, !tokenCount, state, progress, model.getLoss(), thread)
+              then printInfo(start.Elapsed.TotalSeconds, !tokenCount, state.args_.lr, progress, model.getLoss(), thread)
           if threadId = 0 
-          then FastText.printInfo(start, !tokenCount, state, 1.0f, model.getLoss(), thread)
+          then printInfo(start.Elapsed.TotalSeconds, !tokenCount, state.args_.lr, 1.0f, model.getLoss(), thread)
                printfn ""
 
-        member x.train words (args : TrainArgs) streamToLines =
+    let train state label verbose words (args : TrainArgs) streamToLines =
           state.args_ <- args.args
           state.dict_ <- Dictionary(state.args_, label, verbose)
           
@@ -251,20 +244,22 @@ module FastTextM =
           state.input_.Uniform(1.0f / float32(state.args_.dim))
           state.output_.Zero()
 
-          start <- Stopwatch.StartNew()
-          tokenCount := 0L
+          let start = Stopwatch.StartNew()
+          let tokenCount = ref 0L
+
+          
           let threads = ResizeArray<Thread>()
           for i = 0 to args.thread - 1 do
             let stream = System.IO.File.Open(args.input, FileMode.Open, FileAccess.Read, FileShare.Read)
             stream.Position <- int64(i) * stream.Length / int64(args.thread)
             let src = streamToLines state.args_.model stream true
-            let t = Thread(fun () -> FastText.trainThread(start, tokenCount, state, src,i, args.thread, verbose))
+            let t = Thread(fun () -> trainThread(start, tokenCount, state, src,i, args.thread, verbose))
             t.Start()
             threads.Add(t)
           for it in threads do
             it.Join()
-          model_ <- Model(state.input_, state.output_, state.args_, 0)
-          state
+          let model_ = Model(state.input_, state.output_, state.args_, 0)
+          state, model_
           
 
 

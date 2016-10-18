@@ -70,10 +70,9 @@ let verbose = 2
 let train() =
     let output = "D:/ft/result/dbpedia"
     let state = FastTextM.createState label verbose
-    let fs = FastTextM.FastText(state, label, verbose)
     let stream = System.IO.File.Open(trainArgs.input, FileMode.Open, FileAccess.Read, FileShare.Read)
     let words = streamToWords stream
-    let state = fs.train words trainArgs streamToLines
+    let state, _ = FastTextM.train state label verbose words trainArgs streamToLines
     FastTextM.saveState (output + ".bin") state 
     if state.args_.model <> Args.model_name.sup 
     then FastTextM.saveVectors(state, output)
@@ -86,10 +85,11 @@ let train() =
 
 let test() =
     let state = FastTextM.loadState("D:/ft/result/dbpedia.bin",label,verbose)
-    let fs = FastTextM.FastText(state,label,verbose)
+
     let stream = System.IO.File.Open("D:/ft/data/dbpedia.test", FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = streamToLines state.args_.model stream false
-    let r = fs.test(src,1)
+    let model = FastTextM.createModel state
+    let r = FastTextM.test(state,model, src,1)
     assert(r.precision >= 0.98f) 
     assert(r.recall >= 0.98f)
     assert(r.nexamples = 70000) 
@@ -111,10 +111,11 @@ let predictRes = [|
 
 let predict() =
     let state = FastTextM.loadState("D:/ft/result/dbpedia.bin",label,verbose)
-    let fs = FastTextM.FastText(state,label,verbose)
+
     let stream = System.IO.File.Open("D:/ft/data/dbpedia.test", FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = streamToLines state.args_.model stream false
-    let r = fs.predict(src,1)
+    let model = FastTextM.createModel state
+    let r = FastTextM.predict(state, model, src,1)
     let r = Seq.take (predictRes.Length) r 
                 |> Seq.choose id
                 |> Seq.map (List.head >> fst)
