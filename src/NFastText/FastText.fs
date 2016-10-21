@@ -66,36 +66,24 @@ module FastTextM =
           finally 
             ifs.Close()
 
-    let getVector(state, vec : Vector, word : String) =
+    let getVector state (word : String) =
           let ngrams = state.dict_.getNgrams(word)
-          vec.Zero()
+          let vec = createVector(state.args_.dim)
           for i = 0 to ngrams.Count - 1 do
              vec.AddRow(state.input_, ngrams.[i])
           if ngrams.Count > 0 
           then vec.Mul(1.0f / float32(ngrams.Count))
+          vec
 
     let saveVectors(state, output : string) =
           use ofs = try new System.IO.StreamWriter(output + ".vec") 
                     with ex -> failwith "Error opening file for saving vectors."
           ofs.WriteLine(sprintf "%d %d" (state.dict_.nwords()) (state.args_.dim))
-          let vec = createVector(state.args_.dim)
           for i = 0 to state.dict_.nwords() - 1 do
             let word = state.dict_.getWord(i)
-            getVector(state, vec, word)
-            ofs.WriteLine(sprintf "%s %A" (word.ToString()) vec)
+            let vec = getVector state word
+            ofs.WriteLine(sprintf "%s %A" word vec)
           ofs.Close()
-
-
-
-    let wordVectors(state) words=
-            seq{
-                  let vec = createVector(state.args_.dim)
-                  
-                  for word in words do
-                    getVector(state, vec, word)
-                    yield vec
-            }
-
     
     let textVector state rng ln =
             let line,_ = state.dict_.mapLine rng ln

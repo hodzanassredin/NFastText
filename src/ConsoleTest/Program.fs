@@ -50,7 +50,7 @@ let getVectors state rng (stream:Stream) =
         then let src = streamToLines state.args_.model stream false
              src |> Seq.map (NFastText.FastTextM.textVector state rng)
         else let words = streamToWords stream
-             NFastText.FastTextM.wordVectors state words
+             words |> Seq.map (NFastText.FastTextM.getVector state)
 
 let trainArgs = {
         input = "D:/ft/data/dbpedia.train"
