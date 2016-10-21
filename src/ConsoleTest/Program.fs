@@ -13,13 +13,13 @@ let streamToWords (s:Stream) =
             line <- r.ReadLine()
         }
 
-let split length (xs: seq<'T>) =
-    let rec loop xs =
+let split length (xs: 'T[]) =
+    let rec loop (xs: 'T[]) =
         seq{
-            yield Seq.truncate length xs 
-            match Seq.length xs <= length with
-            | false -> yield! loop (Seq.skip length xs)
-            | true -> ()
+            if xs.Length <= length 
+            then yield xs
+            else yield xs.[..length-1]
+                 yield! loop xs.[length..]
         }
     loop xs
 
@@ -48,7 +48,7 @@ let getVectors state rng (stream:Stream) =
         use cin = System.Console.OpenStandardInput()
         if state.args_.model = Args.model_name.sup 
         then let src = streamToLines state.args_.model stream false
-             NFastText.FastTextM.textVectors state rng src
+             src |> Seq.map (NFastText.FastTextM.textVector state rng)
         else let words = streamToWords stream
              NFastText.FastTextM.wordVectors state words
 
@@ -115,7 +115,7 @@ let predict() =
     let stream = System.IO.File.Open("D:/ft/data/dbpedia.test", FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = streamToLines state.args_.model stream false
     let model = FastTextM.createModel state
-    let r = FastTextM.predict(state, model, src,1)
+    let r = src |> Seq.map (FastTextM.predict state model 1)
     let r = Seq.take (predictRes.Length) r 
                 |> Seq.choose id
                 |> Seq.map (List.head >> fst)

@@ -183,23 +183,18 @@ module Dictionary =
               h <- h * 116049371uL + uint64(line.[j])
               line.Add(nwords_ + int(h % uint64(args.bucket)))
 
-      member x.getLines(src : seq<seq<string>>, 
-                        rng : Random.Mcg31m1)=
-          
-          seq{
-                for line in src do
-                    let words = ResizeArray<int>()
-                    let labels = ResizeArray<int>()
-                    let ids = line |> Seq.map x.getId
-                                   |> Seq.where (fun wid -> wid >= 0)
-                    for wid in ids do
-                        let etype = x.getType(wid)
-                        if etype = entry_type.word && not (x.discard(wid, rng.Sample()))
-                        then words.Add(wid)
-                        if etype = entry_type.label 
-                        then labels.Add(wid - nwords_)
-                    yield words, labels
-          }
+      member x.mapLine(rng : Random.Mcg31m1) (line : string[]) =
+            let words = ResizeArray<int>()
+            let labels = ResizeArray<int>()
+            let ids = line |> Seq.map x.getId
+                           |> Seq.where (fun wid -> wid >= 0)
+            for wid in ids do
+                let etype = x.getType(wid)
+                if etype = entry_type.word && not (x.discard(wid, rng.Sample()))
+                then words.Add(wid)
+                if etype = entry_type.label 
+                then labels.Add(wid - nwords_)
+            words, labels
 
 
       member x.getLabel(lid : int) =

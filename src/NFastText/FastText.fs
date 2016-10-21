@@ -97,19 +97,17 @@ module FastTextM =
             }
 
     
-    let textVectors state rng src =
-            seq{
-                  let vec = createVector(state.args_.dim)
+    let textVector state rng ln =
+            let line,_ = state.dict_.mapLine rng ln
+            let vec = createVector(state.args_.dim)
+            state.dict_.addNgrams(line, state.args_.wordNgrams)
+            vec.Zero()
+            for i = 0 to line.Count - 1 do
+                vec.AddRow(state.input_, line.[i])
+            if line.Count > 0
+            then vec.Mul(1.0f / float32(line.Count))
+            vec
 
-                  for line,_ in state.dict_.getLines(src, rng) do
-                    state.dict_.addNgrams(line, state.args_.wordNgrams)
-                    vec.Zero()
-                    for i = 0 to line.Count - 1 do
-                      vec.AddRow(state.input_, line.[i])
-                    if line.Count > 0
-                    then vec.Mul(1.0f / float32(line.Count))
-                    yield vec
-            }
 
     let createModel state = 
         let model_ = Model(state.input_, state.output_, state.args_, 1)
@@ -159,8 +157,8 @@ module FastTextM =
           let mutable nexamples = 0
           let mutable nlabels = 0
           let mutable precision = 0.0f
-
-          for line,labels in state.dict_.getLines(lines, model_.rng) do
+          let lines = lines |> Seq.map (state.dict_.mapLine model_.rng) 
+          for line,labels in lines do
             state.dict_.addNgrams(line, state.args_.wordNgrams);
             if (labels.Count > 0 && line.Count > 0) 
             then
@@ -179,25 +177,24 @@ module FastTextM =
           }
 
           
-    let predict(state, model_ : Model, src, k : int) =
-          seq{
-              for line,_ in state.dict_.getLines(src, model_.rng) do
-                state.dict_.addNgrams(line, state.args_.wordNgrams)
-                if line.Count = 0 
-                then yield None
-                else
-                    let predictions = ResizeArray<KeyValuePair<float32,int>>()
-                    model_.predict(line.ToArray(), k, predictions)
-                    let mutable res = []
-                    for i = 0 to predictions.Count - 1 do
-                      if i > 0 then printf " "
-                      let l = state.dict_.getLabel(predictions.[i].Value)
-                      let prob = exp(predictions.[i].Key)
-                      res <- (l,prob) :: res
-                    yield Some res
-          }
+    let predict state (model_ : Model) (k : int) line =
+            let line,_ = state.dict_.mapLine model_.rng line
+            state.dict_.addNgrams(line, state.args_.wordNgrams)
+            if line.Count = 0 
+            then None
+            else
+                let predictions = ResizeArray<KeyValuePair<float32,int>>()
+                model_.predict(line.ToArray(), k, predictions)
+                let mutable res = []
+                for i = 0 to predictions.Count - 1 do
+                    if i > 0 then printf " "
+                    let l = state.dict_.getLabel(predictions.[i].Value)
+                    let prob = exp(predictions.[i].Key)
+                    res <- (l,prob) :: res
+                Some res
+          
 
-    let trainThread(start : Stopwatch, tokenCount : int64 ref, state, src, threadId : int, thread : int, verbose : int) =
+    let trainThread(start : Stopwatch, tokenCount : int64 ref, state, src : seq<_>, threadId : int, thread : int, verbose : int) =
           let model = Model(state.input_, state.output_, state.args_, threadId)
           if state.args_.model = model_name.sup
           then model.setTargetCounts(state.dict_.getCounts(entry_type.label).ToArray())
@@ -206,12 +203,12 @@ module FastTextM =
           let ntokens = state.dict_.ntokens()
           let mutable localTokenCount = 0
 
-          let lineSrc = state.dict_.getLines(src, model.rng).GetEnumerator()
+          let lineSrc = src.GetEnumerator()
           while !tokenCount < int64(state.args_.epoch * ntokens) do
             let progress = float32(!tokenCount) / float32(state.args_.epoch * ntokens)
             let lr = state.args_.lr * (1.0f - progress)
             lineSrc.MoveNext() |> ignore
-            let line, labels = lineSrc.Current
+            let line, labels = state.dict_.mapLine model.rng lineSrc.Current
             localTokenCount <- localTokenCount + line.Count + labels.Count//todo verify
             if state.args_.model = model_name.sup
             then
