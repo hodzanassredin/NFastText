@@ -88,7 +88,7 @@ let test() =
 
     let stream = System.IO.File.Open("D:/ft/data/dbpedia.test", FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = streamToLines state.args_.model stream false
-    let model = FastTextM.createModel state
+    let model = FastTextM.createModel state 1
     let r = FastTextM.test(state,model, src,1)
     assert(r.precision >= 0.98f) 
     assert(r.recall >= 0.98f)
@@ -114,7 +114,7 @@ let predict() =
 
     let stream = System.IO.File.Open("D:/ft/data/dbpedia.test", FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = streamToLines state.args_.model stream false
-    let model = FastTextM.createModel state
+    let model = FastTextM.createModel state 1
     let r = src |> Seq.map (FastTextM.predict state model 1)
     let r = Seq.take (predictRes.Length) r 
                 |> Seq.choose id
