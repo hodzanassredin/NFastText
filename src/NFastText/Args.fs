@@ -11,6 +11,7 @@ module Args =
          ws  : int
          //number of epochs
          epoch  : int
+         //minimal number of word occurences
          minCount  : int
          //number of negatives sampled
          neg  : int
@@ -35,7 +36,6 @@ module Args =
          dim  = 100
          ws  = 5
          epoch  = 5
-         //minimal number of word occurences
          minCount  = 5
          neg  = 5
          wordNgrams  = 1
@@ -49,7 +49,6 @@ module Args =
         }
 
 
-    let cbowArgs = { defaultArgs with model  = model_name.cbow}
 
     let validate args =
         if args.wordNgrams  <= 1 && args.maxn  = 0

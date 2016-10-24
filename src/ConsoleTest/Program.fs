@@ -44,15 +44,23 @@ let rec streamToLines model (s:Stream) fromStartOnEof =
                 }
     loop()
 
-let getVectors state rng (stream:Stream) =
-        use cin = System.Console.OpenStandardInput()
-        if state.args_.model = Args.model_name.sup 
-        then let src = streamToLines state.args_.model stream false
-             src |> Seq.map (NFastText.FastTextM.textVector state rng)
-        else let words = streamToWords stream
-             words |> Seq.map (NFastText.FastTextM.getVector state)
+let getTextVectors modelPath dataPath label verbose =
+    let state = FastTextM.loadState(modelPath,label,verbose)
+    let stream = System.IO.File.Open(dataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
+    assert(state.args_.model = Args.model_name.sup)
+    let rng = Random.Mcg31m1()
+    let src = streamToLines state.args_.model stream false
+    let vectors = src |> Seq.map (NFastText.FastTextM.textVector state rng)
+    assert(true)
 
-
+let getWordVectors modelPath dataPath label verbose =
+    let state = FastTextM.loadState(modelPath,label,verbose)
+    let stream = System.IO.File.Open(dataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
+    assert(state.args_.model <> Args.model_name.sup)
+    let words = streamToWords stream
+    let vectors = words |> Seq.map (NFastText.FastTextM.getVector state)
+    let r = Seq.head vectors
+    assert(r.Length = state.args_.dim)
 
 let train trainDataPath modelPath threads args label verbose =
     let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
@@ -61,7 +69,6 @@ let train trainDataPath modelPath threads args label verbose =
     dict.readFromFile(words)
     let state = FastTextM.createState args dict
 
-
     let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = streamToLines state.args_.model stream true
 
@@ -69,11 +76,6 @@ let train trainDataPath modelPath threads args label verbose =
     FastTextM.saveState (modelPath) state 
     if state.args_.model <> Args.model_name.sup 
     then FastTextM.saveVectors(state, modelPath)
-
-//    let getVectors model (fasttext : FastText) =
-//        fasttext.loadModel(model)
-//        fasttext.getVectors()
-
 
 
 let test modelPath testDataPath label verbose =
@@ -86,6 +88,7 @@ let test modelPath testDataPath label verbose =
     assert(r.precision >= 0.97f) 
     assert(r.recall >= 0.97f)
     assert(r.nexamples = 70000) 
+
 let predictRes = [|
     "__label__9"
     "__label__9"
@@ -128,9 +131,17 @@ let trainArgs = { Args.defaultArgs with
                     epoch = 5
                }
 
+let cbowArgs = { Args.defaultArgs with model  = Args.model_name.cbow}
+
+
 [<EntryPoint>]
 let main argv = 
+    //classification model
     train "D:/ft/data/dbpedia.train" "D:/ft/result/dbpedia.bin" 4 trainArgs "__label__" 2
     test "D:/ft/result/dbpedia.bin" "D:/ft/data/dbpedia.test" "__label__" 2
     predict "D:/ft/result/dbpedia.bin" "D:/ft/data/dbpedia.test" "__label__" 2
+    
+    //cbow model
+    train "D:/ft/data/dbpedia.train" "D:/ft/result/dbpedia_cbow.bin" 4 cbowArgs "__label__" 2
+    getWordVectors "D:/ft/result/dbpedia_cbow.bin" "D:/ft/data/dbpedia.test" "__label__" 2
     0 // return an integer exit code
