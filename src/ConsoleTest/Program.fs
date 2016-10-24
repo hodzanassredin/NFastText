@@ -3,14 +3,14 @@
 open NFastText
 open NFastText.FastTextM
 open System.IO
-
+open NFastText.Dictionary
 let streamToWords (s:Stream) =
         let r = new StreamReader(s)
         seq{
-        let mutable line = r.ReadLine()
-        while line <> null do
-            yield! line.Split([|' '; '\t'; '\n'; '\v'; '\f'; '\r'|])
-            line <- r.ReadLine()
+            let mutable line = r.ReadLine()
+            while line <> null do
+                yield! line.Split([|' '; '\t'; '\n'; '\v'; '\f'; '\r'|])
+                line <- r.ReadLine()
         }
 
 let split length (xs: 'T[]) =
@@ -52,30 +52,23 @@ let getVectors state rng (stream:Stream) =
         else let words = streamToWords stream
              words |> Seq.map (NFastText.FastTextM.getVector state)
 
-let trainArgs = {
-        input = "D:/ft/data/dbpedia.train"
-        output = "D:/ft/result/dbpedia"
-        args = { Args.supervisedArgs with
-                    dim=10
-                    lr = 0.1f
-                    wordNgrams = 2
-                    minCount = 1
-                    bucket = 10000000
-                    epoch = 5
-               }
-        thread =  4
-}
-let label = "__label__"
-let verbose = 2
-let train() =
-    let output = "D:/ft/result/dbpedia"
-    let state = FastTextM.createState label verbose
-    let stream = System.IO.File.Open(trainArgs.input, FileMode.Open, FileAccess.Read, FileShare.Read)
+
+
+let train trainDataPath modelPath threads args label verbose =
+    let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let words = streamToWords stream
-    let state, _ = FastTextM.train state label verbose words trainArgs streamToLines
-    FastTextM.saveState (output + ".bin") state 
+    let dict = Dictionary(args, label, verbose)
+    dict.readFromFile(words)
+    let state = FastTextM.createState args dict
+
+
+    let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
+    let src = streamToLines state.args_.model stream true
+
+    let state = FastTextM.train state label verbose words src threads
+    FastTextM.saveState (modelPath) state 
     if state.args_.model <> Args.model_name.sup 
-    then FastTextM.saveVectors(state, output)
+    then FastTextM.saveVectors(state, modelPath)
 
 //    let getVectors model (fasttext : FastText) =
 //        fasttext.loadModel(model)
@@ -83,15 +76,15 @@ let train() =
 
 
 
-let test() =
-    let state = FastTextM.loadState("D:/ft/result/dbpedia.bin",label,verbose)
+let test modelPath testDataPath label verbose =
+    let state = FastTextM.loadState(modelPath,label,verbose)
 
-    let stream = System.IO.File.Open("D:/ft/data/dbpedia.test", FileMode.Open, FileAccess.Read, FileShare.Read)
+    let stream = System.IO.File.Open(testDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = streamToLines state.args_.model stream false
     let model = FastTextM.createModel state 1
     let r = FastTextM.test(state,model, src,1)
-    assert(r.precision >= 0.98f) 
-    assert(r.recall >= 0.98f)
+    assert(r.precision >= 0.97f) 
+    assert(r.recall >= 0.97f)
     assert(r.nexamples = 70000) 
 let predictRes = [|
     "__label__9"
@@ -109,10 +102,9 @@ let predictRes = [|
 |]
 
 
-let predict() =
-    let state = FastTextM.loadState("D:/ft/result/dbpedia.bin",label,verbose)
-
-    let stream = System.IO.File.Open("D:/ft/data/dbpedia.test", FileMode.Open, FileAccess.Read, FileShare.Read)
+let predict modelPath testDataPath label verbose =
+    let state = FastTextM.loadState(modelPath,label,verbose)
+    let stream = System.IO.File.Open(testDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = streamToLines state.args_.model stream false
     let model = FastTextM.createModel state 1
     let r = src |> Seq.map (FastTextM.predict state model 1)
@@ -122,9 +114,23 @@ let predict() =
                 |> Array.ofSeq
     assert(r = predictRes)
 
+
+let trainArgs = { Args.defaultArgs with
+                    model  = Args.model_name.sup
+                    loss  = Args.loss_name.softmax
+                    minn  = 0
+                    maxn  = 0
+                    dim=10
+                    lr = 0.1f
+                    wordNgrams = 2
+                    minCount = 1
+                    bucket = 10000000
+                    epoch = 5
+               }
+
 [<EntryPoint>]
 let main argv = 
-    train()
-    test()
-    predict()
+    train "D:/ft/data/dbpedia.train" "D:/ft/result/dbpedia.bin" 4 trainArgs "__label__" 2
+    test "D:/ft/result/dbpedia.bin" "D:/ft/data/dbpedia.test" "__label__" 2
+    predict "D:/ft/result/dbpedia.bin" "D:/ft/data/dbpedia.test" "__label__" 2
     0 // return an integer exit code

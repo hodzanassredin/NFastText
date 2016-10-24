@@ -11,13 +11,6 @@ module FastTextM =
     open System.Threading
     open System.IO
 
-    type TrainArgs = {
-        input : string
-        output : string
-        args :Args
-        thread : int
-    }
-
     type TestResult = {
         precision : float32
         recall : float32
@@ -31,9 +24,9 @@ module FastTextM =
         mutable input_ : Matrix.Matrix
         mutable output_ : Matrix.Matrix
     }
-    let createState label verbose = {
-        args_ = Args.defaultArgs
-        dict_ = Dictionary(Args.defaultArgs, label, verbose)
+    let createState args dict = {
+        args_ = args
+        dict_ = dict
         input_ = Matrix.createNull()
         output_ = Matrix.createNull()
     }
@@ -183,29 +176,29 @@ module FastTextM =
     type ResponseLine = float32 * string[][]
     type RequestLine = int  * float32 * AsyncReplyChannel<ResponseLine> 
 
-    let linesSource state (src : seq<_>) threads verbose (tkn:CancellationToken)  =
+    let linesSource (dict:Dictionary) args (src : seq<_>) threads verbose (tkn:CancellationToken)  =
        let cts = new CancellationTokenSource()
        let src = src |> Seq.chunkBySize 10
        MailboxProcessor<RequestLine>.Start(fun inbox ->
                     let lineSrc = src.GetEnumerator()
                     let start = Stopwatch.StartNew()
-                    let ntokens = state.dict_.ntokens()
+                    let ntokens = dict.ntokens()
                     let mutable tokenCount = 0L
                     async { 
                         while not tkn.IsCancellationRequested do
                             let! (count, loss, replyChannel) = inbox.Receive()
                             tokenCount <- tokenCount + int64(count)
-                            let progress = float32(tokenCount) / float32(state.args_.epoch * ntokens)
-                            let lr = state.args_.lr * (1.0f - progress)
+                            let progress = float32(tokenCount) / float32(args.epoch * ntokens)
+                            let lr = args.lr * (1.0f - progress)
                             lineSrc.MoveNext() |> ignore
                             replyChannel.Reply(lr, lineSrc.Current)
                             if not cts.IsCancellationRequested
                             then
-                                if verbose > 1 && tokenCount % int64(state.args_.lrUpdateRate * threads) < int64(count) 
-                                then printInfo(start.Elapsed.TotalSeconds, tokenCount, state.args_.lr, progress, loss, threads)
+                                if verbose > 1 && tokenCount % int64(args.lrUpdateRate * threads) < int64(count) 
+                                then printInfo(start.Elapsed.TotalSeconds, tokenCount, args.lr, progress, loss, threads)
                             
-                                if tokenCount >= int64(state.args_.epoch * ntokens)
-                                then  printInfo(start.Elapsed.TotalSeconds, tokenCount, state.args_.lr, 1.0f, loss, threads)
+                                if tokenCount >= int64(args.epoch * ntokens)
+                                then  printInfo(start.Elapsed.TotalSeconds, tokenCount, args.lr, 1.0f, loss, threads)
                                       printfn ""
                                       cts.Cancel()
                     }) , cts.Token
@@ -229,11 +222,8 @@ module FastTextM =
         }
 
 
-    let train state label verbose words (args : TrainArgs) streamToLines =
-          state.args_ <- args.args
-          state.dict_ <- Dictionary(state.args_, label, verbose)
+    let train state label verbose words src threads =
           
-          state.dict_.readFromFile(words)
 
           state.input_ <- Matrix.create(state.dict_.nwords() + int(state.args_.bucket), state.args_.dim)
           if state.args_.model = model_name.sup
@@ -241,15 +231,13 @@ module FastTextM =
           else state.output_ <- Matrix.create(state.dict_.nwords(), state.args_.dim)
           state.input_.Uniform(1.0f / float32(state.args_.dim))
           state.output_.Zero()
-          let stream = System.IO.File.Open(args.input, FileMode.Open, FileAccess.Read, FileShare.Read)
-          let src = streamToLines state.args_.model stream true
+          
           let cts = new CancellationTokenSource()
-          let src, tkn = linesSource state src args.thread verbose cts.Token
-          let workers = [0..args.thread - 1] |> Seq.map (worker state src tkn)
+          let src, tkn = linesSource state.dict_ state.args_ src threads verbose cts.Token
+          let workers = [0..threads - 1] |> Seq.map (worker state src tkn)
           Async.Parallel workers |> Async.Ignore |> Async.RunSynchronously
           cts.Cancel()
-          let model_ = Model(state.input_, state.output_, state.args_, 0)
-          state, model_
+          state
           
 
 

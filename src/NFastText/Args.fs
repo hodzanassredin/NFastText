@@ -48,14 +48,7 @@ module Args =
          t  = 1e-4f
         }
 
-    let supervisedArgs = { defaultArgs with
-                                model  = model_name.sup
-                                loss  = loss_name.softmax
-                                minCount  = 1
-                                minn  = 0
-                                maxn  = 0
-                                lr  = 0.1f
-                            }
+
     let cbowArgs = { defaultArgs with model  = model_name.cbow}
 
     let validate args =
