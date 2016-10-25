@@ -222,9 +222,7 @@ module FastTextM =
         }
 
 
-    let train state label verbose words src threads =
-          
-
+    let train state verbose src threads =
           state.input_ <- Matrix.create(state.dict_.nwords() + int(state.args_.bucket), state.args_.dim)
           if state.args_.model = model_name.sup
           then state.output_ <- Matrix.create(state.dict_.nlabels(), state.args_.dim)

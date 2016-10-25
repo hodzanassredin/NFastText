@@ -6,11 +6,21 @@ open System.IO
 open NFastText.Dictionary
 let streamToWords (s:Stream) =
         let r = new StreamReader(s)
+        let splitters = [|' '; '\t'; '\n'; '\v'; '\f'; '\r'|]
+        let word = ResizeArray<char>()
+        let buffer = Array.zeroCreate 100000
+        let mutable readedChars = buffer.Length
         seq{
-            let mutable line = r.ReadLine()
-            while line <> null do
-                yield! line.Split([|' '; '\t'; '\n'; '\v'; '\f'; '\r'|])
-                line <- r.ReadLine()
+            while readedChars = buffer.Length do
+                readedChars <- r.ReadBlock(buffer, 0, buffer.Length)
+                for i = 0  to readedChars - 1 do
+                    let char = buffer.[i]
+                    if Array.contains char splitters 
+                    then if word.Count > 0 
+                            then yield System.String.Join("", word)
+                                 word.Clear()
+                    else word.Add(char)
+            if word.Count > 0 then yield System.String.Join("", word)
         }
 
 let split length (xs: 'T[]) =
@@ -72,7 +82,7 @@ let train trainDataPath modelPath threads args label verbose =
     let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = streamToLines state.args_.model stream true
 
-    let state = FastTextM.train state label verbose words src threads
+    let state = FastTextM.train state verbose src threads
     FastTextM.saveState (modelPath) state 
     if state.args_.model <> Args.model_name.sup 
     then FastTextM.saveVectors(state, modelPath)
@@ -131,17 +141,38 @@ let trainArgs = { Args.defaultArgs with
                     epoch = 5
                }
 
-let cbowArgs = { Args.defaultArgs with model  = Args.model_name.cbow}
+let skipgramArgs = { Args.defaultArgs with 
+                        model  = Args.model_name.sg
+                        lr = 0.025f
+                        dim = 100
+                        ws = 5
+                        epoch = 1
+                        minCount = 5
+                        neg = 5
+                        loss = Args.loss_name.ns
+                        bucket = 2000000
+                        minn = 3
+                        maxn = 6
+                        t = 1e-4f
+                        lrUpdateRate = 100
+                   }
+
+ 
 
 
 [<EntryPoint>]
 let main argv = 
+    //skipgram model
+    train "D:/ft/data/text9" "D:/ft/result/text9.bin" 4 skipgramArgs "__label__" 2
+    getWordVectors "D:/ft/result/text9.bin" "D:/ft/data/queries.txt" "__label__" 2
+
     //classification model
     train "D:/ft/data/dbpedia.train" "D:/ft/result/dbpedia.bin" 4 trainArgs "__label__" 2
     test "D:/ft/result/dbpedia.bin" "D:/ft/data/dbpedia.test" "__label__" 2
     predict "D:/ft/result/dbpedia.bin" "D:/ft/data/dbpedia.test" "__label__" 2
+
+
+
     
-    //cbow model
-    train "D:/ft/data/dbpedia.train" "D:/ft/result/dbpedia_cbow.bin" 4 cbowArgs "__label__" 2
-    getWordVectors "D:/ft/result/dbpedia_cbow.bin" "D:/ft/data/dbpedia.test" "__label__" 2
+
     0 // return an integer exit code
