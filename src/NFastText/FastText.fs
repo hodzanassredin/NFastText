@@ -91,11 +91,12 @@ module FastTextM =
 
 
     let createModel state seed = 
-        let model_ = Model(state.input_, state.output_, state.args_, seed)
-        if state.args_.model = model_name.sup
-            then model_.setTargetCounts(state.dict_.getCounts(entry_type.label).ToArray())
-            else model_.setTargetCounts(state.dict_.getCounts(entry_type.word).ToArray())
-        model_
+        let model = Model.createModel(state.input_, state.output_, state.args_, seed)
+        let counts = if state.args_.model = model_name.sup
+                     then state.dict_.getCounts(entry_type.label).ToArray()
+                     else state.dict_.getCounts(entry_type.word).ToArray()
+        let engine = Model.createEngine state.args_.loss counts model.rng state.args_.neg model.osz
+        model, engine
     
     let printInfo(seconds, tokenCount, lr, progress : float32, loss : float32, thread : int) =
           let t = float32(seconds) 
@@ -106,66 +107,65 @@ module FastTextM =
           let etam = (eta - etah * 3600) / 60
           printf "\rProgress: %.1f%%  words/sec/thread: %.0f  lr: %.6f  loss: %.6f  eta: %dh %dm" (100.f * progress) wst lr loss etah etam
 
-    let supervised(model : Model, 
+    let supervised(model : Model, engine :Model.ModelEngine,
                                  lr : float32,
                                  line : ResizeArray<int>,
                                  labels : ResizeArray<int>) =
           if labels.Count = 0 || line.Count = 0 then ()
           else let i = model.rng.DiscrUniformSample(0, labels.Count - 1)
-               model.update(line.ToArray(), labels.[i], lr)
+               Model.update(line.ToArray(), labels.[i], lr) engine model
 
-    let cbow(state, model : Model, lr : float32, line : ResizeArray<int>) =
-          let bow =  ResizeArray<int>()
-          for w = 0 to line.Count - 1 do
+    let cbow(state, model : Model, engine :Model.ModelEngine, lr : float32, line : ResizeArray<int>) =
+        let bow =  ResizeArray<int>()
+        for w = 0 to line.Count - 1 do
             let boundary = model.rng.DiscrUniformSample(1, state.args_.ws)
             bow.Clear()
             for c = -boundary to boundary do
-              if c <> 0 && w + c >= 0 && w + c < line.Count
-              then let ngrams = state.dict_.getNgrams(line.[w + c])
-                   bow.AddRange(ngrams)
-            model.update(bow.ToArray(), line.[w], lr)
+                if c <> 0 && w + c >= 0 && w + c < line.Count
+                then let ngrams = state.dict_.getNgrams(line.[w + c])
+                     bow.AddRange(ngrams)
+            Model.update(bow.ToArray(), line.[w], lr) engine model
 
-    let skipgram(state, model : Model, lr : float32, line : ResizeArray<int>) =
-          for w = 0 to line.Count - 1 do
-            //model.wo.data[7428][99]
+    let skipgram(state, model : Model, engine :Model.ModelEngine, lr : float32, line : ResizeArray<int>) =
+        for w = 0 to line.Count - 1 do
             let boundary = model.rng.DiscrUniformSample(1, state.args_.ws)
             let ngrams = state.dict_.getNgrams(line.[w])
             for c = -boundary to boundary do
-              if c <> 0 && w + c >= 0 && w + c < line.Count
-              then model.update(ngrams.ToArray(), line.[w + c], lr);
+                if c <> 0 && w + c >= 0 && w + c < line.Count
+                then Model.update(ngrams.ToArray(), line.[w + c], lr) engine model
         
-    let test(state, model_ : Model, lines, k : int) =
-          let mutable nexamples = 0
-          let mutable nlabels = 0
-          let mutable precision = 0.0f
-          let lines = lines |> Seq.map (state.dict_.mapLine model_.rng) 
-          for line,labels in lines do
+    let test(state, model : Model, engine :Model.ModelEngine, lines, k : int) =
+        let mutable nexamples = 0
+        let mutable nlabels = 0
+        let mutable precision = 0.0f
+        let lines = lines |> Seq.map (state.dict_.mapLine model.rng) 
+        for line,labels in lines do
             state.dict_.addNgrams(line, state.args_.wordNgrams);
             if (labels.Count > 0 && line.Count > 0) 
             then
-              let predictions = ResizeArray<KeyValuePair<float32,int>>()
-              model_.predict(line.ToArray(), k, predictions)
-              for i = 0 to predictions.Count - 1 do
-                if labels.Contains(predictions.[i].Value) 
-                then precision <- precision + 1.0f
-              nexamples <- nexamples + 1
-              nlabels <- nlabels + labels.Count
-          {
-            precision = precision / float32(k * nexamples)
-            recall = precision / float32(nlabels)
-            nexamples = nexamples
-            k  = k
-          }
+                let predictions = ResizeArray<KeyValuePair<float32,int>>()
+                Model.predict(line.ToArray(), k, predictions) engine model
+                for i = 0 to predictions.Count - 1 do
+                    if labels.Contains(predictions.[i].Value) 
+                    then precision <- precision + 1.0f
+                nexamples <- nexamples + 1
+                nlabels <- nlabels + labels.Count
+        {
+        precision = precision / float32(k * nexamples)
+        recall = precision / float32(nlabels)
+        nexamples = nexamples
+        k  = k
+        }
 
           
-    let predict state (model_ : Model) (k : int) line =
-            let line,_ = state.dict_.mapLine model_.rng line
+    let predict state (model : Model) (engine :Model.ModelEngine) (k : int) line =
+            let line,_ = state.dict_.mapLine model.rng line
             state.dict_.addNgrams(line, state.args_.wordNgrams)
             if line.Count = 0 
             then None
             else
                 let predictions = ResizeArray<KeyValuePair<float32,int>>()
-                model_.predict(line.ToArray(), k, predictions)
+                Model.predict(line.ToArray(), k, predictions) engine model
                 let mutable res = []
                 for i = 0 to predictions.Count - 1 do
                     if i > 0 then printf " "
@@ -204,19 +204,19 @@ module FastTextM =
                     }) , cts.Token
 
     let worker state (source:MailboxProcessor<RequestLine>) (tkn:CancellationToken) threadId =
-        let model = createModel state threadId
+        let model, engine = createModel state threadId
         let mutable count = 0
         async{
             while not tkn.IsCancellationRequested do
-                let! lr, lines = source.PostAndAsyncReply(fun replyChannel -> count, model.getLoss(), replyChannel)
+                let! lr, lines = source.PostAndAsyncReply(fun replyChannel -> count, Model.getLoss model, replyChannel)
                 count <- 0
                 for line in lines do
                     let line, labels = state.dict_.mapLine (model.rng) line
                     match state.args_.model with
                         | model_name.sup -> state.dict_.addNgrams(line, state.args_.wordNgrams)
-                                            supervised(model, lr, line, labels)
-                        | model_name.cbow -> cbow(state, model, lr, line)
-                        | model_name.sg -> skipgram(state, model, lr, line)
+                                            supervised(model, engine, lr, line, labels)
+                        | model_name.cbow -> cbow(state, model, engine, lr, line)
+                        | model_name.sg -> skipgram(state, model, engine, lr, line)
                         | _ -> failwith "not supported model"
                     count <- count + line.Count + labels.Count
         }

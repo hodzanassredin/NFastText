@@ -4,6 +4,7 @@ module Model =
     open Args
     open System.Linq
     open System.Collections.Generic
+    let bfloat32 b = if b then 1.f else 0.f
     let NEGATIVE_TABLE_SIZE = 10000000
     type Node =
        struct
@@ -22,96 +23,58 @@ module Model =
                 binary = binary
             }
        end
+    type Model = {
+        wi : Matrix 
+        wo : Matrix 
+        modelName : model_name 
+        rng : Random.Mcg31m1
+        grad : Vector
+        output : Vector
+        hidden : Vector
+        osz : int
+        mutable loss : float32
+        mutable nexamples : int
+    }
 
-    type Model(wi : Matrix, wo : Matrix, args : Args, seed : int) =
-        let rng_ = Random.Mcg31m1(seed)
-        let grad_ = createVector(args.dim)
-        let output_ = createVector(wo.m)
-        let hidden_ = createVector(args.dim)
-        let codes : ResizeArray<ResizeArray<bool>> = ResizeArray<ResizeArray<bool>>()
-        let paths : ResizeArray<ResizeArray<int>> = ResizeArray<ResizeArray<int>>()
-        let osz_ = wo.m
-        let mutable negpos = 0
-        let mutable loss_ = 0.0f
-        let mutable nexamples_ = 1
-        let mutable tree : ResizeArray<Node> = null 
-        let mutable negatives = ResizeArray<int>()
+    let createModel(wi : Matrix, wo : Matrix, args : Args, seed : int)= 
+        {
+            wi = wi
+            wo = wo
+            modelName = args.model
+            rng = Random.Mcg31m1(seed)
+            grad = createVector(args.dim)
+            output = createVector(wo.m)
+            hidden = createVector(args.dim)
+            osz = wo.m
+            loss = 0.0f
+            nexamples = 1
+        }
 
-        let bfloat32 b = if b then 1.f else 0.f
+    let binaryLogistic(target : int, label : bool, lr : float32) model =
+        let dot = model.wo.DotRow(model.hidden, target)
+        let score = Utils.sigmoid(dot)
+        let alpha = lr * (bfloat32(label) - score)
+        model.grad.AddRow(model.wo, target, alpha)
+        model.wo.AddRow(model.hidden, target, alpha)
+        if label then -Utils.log(score)
+        else -Utils.log(1.0f - score)
 
-        member x.rng = rng_
-        member x.BinaryLogistic(target : int, label : bool, lr : float32) =
-            let dot = wo.DotRow(hidden_, target)
-            let score = Utils.sigmoid(dot)
-            let alpha = lr * (bfloat32(label) - score)
-            grad_.AddRow(wo, target, alpha)
-            wo.AddRow(hidden_, target, alpha)
-            if label then -Utils.log(score)
-            else -Utils.log(1.0f - score)
+    let computeOutputSoftmax model =
+        model.output.Mul(model.wo, model.hidden)
+        let mutable maxv = model.output.[0]
+        let mutable z = 0.0f
+        for i = 0 to (model.osz - 1) do
+            maxv <- max (model.output.[i]) maxv
+        for i = 0 to (model.osz - 1) do
+            model.output.[i] <- exp(model.output.[i] - maxv)
+            z <- z + model.output.[i]
+        for i = 0 to (model.osz - 1) do
+            model.output.[i] <- model.output.[i] / z
 
-        member x.NegativeSampling(target : int, lr : float32) =
-          let mutable loss = 0.0f
-          grad_.Zero()
-          for n = 0 to args.neg do
-            if n = 0 
-            then
-              loss <- loss + x.BinaryLogistic(target, true, lr)
-            else 
-              loss <- loss + x.BinaryLogistic(x.getNegative(target), false, lr);
-          loss
-
-        member x.HierarchicalSoftmax(target : int, lr : float32) =
-          let mutable loss = 0.0f
-          grad_.Zero()
-          let binaryCode = codes.[target]
-          let pathToRoot = paths.[target]
-          for i = 0 to (pathToRoot.Count-1) do
-            loss <- loss + x.BinaryLogistic(pathToRoot.[i], binaryCode.[i], lr);
-          loss
-    
-        member x.ComputeOutputSoftmax() =
-          output_.Mul(wo, hidden_)
-          let mutable maxv = output_.[0]
-          let mutable z = 0.0f
-          for i = 0 to (osz_ - 1) do
-            maxv <- max (output_.[i]) maxv
-          for i = 0 to (osz_ - 1) do
-            output_.[i] <- exp(output_.[i] - maxv)
-            z <- z + output_.[i]
-          for i = 0 to (osz_ - 1) do
-            output_.[i] <- output_.[i] / z;
-
-        member x.Softmax(target : int, lr : float32) =
-          grad_.Zero()
-          x.ComputeOutputSoftmax()
-          for i = 0 to (osz_ - 1) do
-            let label = if i = target then 1.0f else 0.0f
-            let alpha = lr * (label - output_.[i])
-            grad_.AddRow(wo, i, alpha)
-            wo.AddRow(hidden_, i, alpha);
-          -Utils.log(output_.[target]);
-
-        member x.ComputeHidden(input : int[]) =
-          hidden_.Zero()
-          for i = 0 to input.Length - 1 do
-            hidden_.AddRow(wi, input.[i])
-          hidden_.Mul(1.0f / float32(input.Length))
-
-
-        member x.predict(input : int[], k : int, arr : ResizeArray<KeyValuePair<float32,int>>) =
-          assert(k > 0)
-          let heap = MinHeap(arr) 
-          heap.Reserve(k + 1);
-          x.ComputeHidden(input)
-          if args.loss = loss_name.hs
-          then x.dfs(k, 2 * osz_ - 2, 0.0f, heap)
-          else x.findKBest(k, heap);
-          arr.Sort(fun x y -> -x.Key.CompareTo(y.Key))
-
-        member x.findKBest(k : int, heap : MinHeap) =
-          x.ComputeOutputSoftmax();
-          for i = 0 to osz_ - 1 do
-            let l = Utils.log(output_.[i])
+    let findKBest(k : int, heap : MinHeap) model =
+        computeOutputSoftmax model
+        for i = 0 to model.osz - 1 do
+            let l = Utils.log(model.output.[i])
             if heap.Count = k && l < heap.Front().Key
             then ()
             else
@@ -119,114 +82,198 @@ module Model =
                 if heap.Count > k
                 then heap.RemoveBack()
 
-        member x.dfs(k : int, node : int, 
-                              score : float32,
-                              heap : MinHeap) =
-                  if heap.Count = k && score < heap.Front().Key 
-                  then ()
-                  else if tree.[node].left = -1 && tree.[node].right = -1
-                       then heap.Add(KeyValuePair(score, node))
-                            if heap.Count > k
-                            then heap.RemoveBack()
-                       else let f = Utils.sigmoid(wo.DotRow(hidden_, node - osz_))
-                            x.dfs(k, tree.[node].left, score + Utils.log(1.0f - f), heap)
-                            x.dfs(k, tree.[node].right, score + Utils.log(f), heap)
+    let softmax(target : int, lr : float32) model =
+        model.grad.Zero()
+        computeOutputSoftmax model
+        for i = 0 to (model.osz - 1) do
+            let label = if i = target then 1.0f else 0.0f
+            let alpha = lr * (label - model.output.[i])
+            model.grad.AddRow(model.wo, i, alpha)
+            model.wo.AddRow(model.hidden, i, alpha)
+        -Utils.log(model.output.[target])
+
+    let computeHidden(input : int[]) model =
+        model.hidden.Zero()
+        for i = 0 to input.Length - 1 do
+            model.hidden.AddRow(model.wi, input.[i])
+        model.hidden.Mul(1.0f / float32(input.Length))
+
+    let getLoss model = model.loss / float32(model.nexamples)
+
+    type HSModel = {
+        tree : ResizeArray<Node>
+        paths : ResizeArray<ResizeArray<int>>
+        codes : ResizeArray<ResizeArray<bool>>
+    }
+
+    let rec dfs(k : int, node : int, score : float32, heap : MinHeap) (model : HSModel) baseModel =
+        if heap.Count = k && score < heap.Front().Key 
+        then ()
+        else if model.tree.[node].left = -1 && model.tree.[node].right = -1
+             then heap.Add(KeyValuePair(score, node))
+                  if heap.Count > k
+                  then heap.RemoveBack()
+             else let f = Utils.sigmoid(baseModel.wo.DotRow(baseModel.hidden, node - baseModel.osz))
+                  dfs(k, model.tree.[node].left, score + Utils.log(1.0f - f), heap) model baseModel
+                  dfs(k, model.tree.[node].right, score + Utils.log(f), heap) model baseModel
+
+    let hierarchicalSoftmax(target : int, lr : float32) (model:HSModel) baseModel =
+          let mutable loss = 0.0f
+          baseModel.grad.Zero()
+          let binaryCode = model.codes.[target]
+          let pathToRoot = model.paths.[target]
+          for i = 0 to (pathToRoot.Count-1) do
+                loss <- loss + binaryLogistic(pathToRoot.[i], binaryCode.[i], lr) baseModel
+          loss
+
+    type NSModel = {
+        negatives : ResizeArray<int>
+        mutable negpos : int
+        neg : int
+    }
+
+    let getNegative(target : int) model =
+        let mutable negative = 0
+        let rec f () = 
+            negative <- model.negatives.[model.negpos]
+            model.negpos <- (model.negpos + 1) % model.negatives.Count
+            if target = negative then f()
+        f()
+        negative
+
+    let negativeSampling(target : int, lr : float32) (model:NSModel) baseModel =
+        let mutable loss = 0.0f
+        baseModel.grad.Zero()
+        for n = 0 to model.neg do
+            if n = 0 
+            then loss <- loss + binaryLogistic(target, true, lr) baseModel
+            else loss <- loss + binaryLogistic(getNegative target model, false, lr) baseModel
+        loss
+
+    let createHierarhicalSoftmax (counts : int64[]) osz =
+        let tree = ResizeArray<Node>(2 * osz - 1)
+        let paths = ResizeArray<ResizeArray<int>>()
+        let codes = ResizeArray<ResizeArray<bool>>()
+        for i = 0 to 2 * osz - 2 do 
+            tree.Add(Node(-1,-1,-1,1000000000000000L, false))
+        for i = 0 to osz - 1 do
+            let mutable x = tree.[i]
+            x.count <- counts.[i]
+            tree.[i] <- x
+        let mutable leaf = osz - 1
+        let mutable node = osz
+        for i = osz to 2 * osz - 2 do
+            let mini = Array.zeroCreate 2
+            for j = 0 to 1 do
+                if leaf >= 0 && tree.[leaf].count < tree.[node].count
+                then mini.[j] <- leaf
+                     leaf <- leaf - 1
+                else mini.[j] <- node
+                     node <- node + 1
+            let mutable x = tree.[i]
+            x.left <- mini.[0]
+            x.right <- mini.[1]
+            x.count <- tree.[mini.[0]].count + tree.[mini.[1]].count
+            tree.[i] <- x
+
+            let mutable x = tree.[mini.[0]]
+            x.parent <- i
+            tree.[mini.[0]] <- x
+
+            let mutable x = tree.[mini.[1]]
+            x.parent <- i
+            x.binary <- true
+            tree.[mini.[1]] <- x
+
+        for i = 0 to osz - 1 do
+            let path = ResizeArray<int>()
+            let code = ResizeArray<bool>()
+            let mutable j = i;
+            while tree.[j].parent <> -1 do
+                path.Add(tree.[j].parent - osz)
+                code.Add(tree.[j].binary)
+                j <- tree.[j].parent
+            paths.Add(path)
+            codes.Add(code)
+
+        {
+            codes = codes
+            paths = paths
+            tree = tree
+        }
+
+    let createNegativeSampling(counts: int64[]) (rng:Random.Mcg31m1) neg =
+        let negatives = ResizeArray<int>(counts.Length)
+        let mutable z = 0.0f
+        for i = 0 to counts.Length - 1 do
+            z <- z + float32(float(counts.[i]) ** 0.5)
+        for i = 0 to counts.Length - 1 do
+            let c = float32(float(counts.[i]) ** 0.5)
+            for j = 0 to int(c * float32(NEGATIVE_TABLE_SIZE) / z) - 1 do
+                negatives.Add(i)
+        negatives.Sort(fun x y -> rng.Next())
+        {
+            negatives = negatives
+            negpos = 0
+            neg = neg
+        }
+
+    type ModelEngine = 
+        | HierarhicalSoftmax of HSModel
+        | Softmax of Unit 
+        | NegativeSampling of NSModel
+
+    
+
+    let createEngine loss (counts: int64[]) rng neg osz =
+        match loss with
+            | loss_name.hs -> createHierarhicalSoftmax counts osz |> HierarhicalSoftmax
+            | loss_name.ns -> createNegativeSampling counts rng neg |> NegativeSampling
+            | loss_name.softmax -> Softmax ()
+
+    let getEngineLoss target lr engine model =
+        match engine with
+            | NegativeSampling(m) -> negativeSampling(target, lr) m model
+            | HierarhicalSoftmax(m) -> hierarchicalSoftmax(target, lr) m model
+            | Softmax() -> softmax(target, lr) model
 
 
-        member x.update(input : int[], target : int, lr : float32) =
-          assert(target >= 0)
-          assert(target < osz_)
-          if input.Length > 0 
-          then
-              hidden_.Zero()
-              for i = 0 to input.Length - 1 do
-                hidden_.AddRow(wi, input.[i])
-              hidden_.Mul(1.0f / float32(input.Length))
-              if args.loss = loss_name.ns
-              then loss_ <- loss_ + x.NegativeSampling(target, lr)
-              else if args.loss = loss_name.hs
-              then loss_ <- loss_ + x.HierarchicalSoftmax(target, lr)
-              else loss_ <- loss_ + x.Softmax(target, lr);
-              nexamples_ <- nexamples_ + 1;
-
-              if args.model = model_name.sup
-              then grad_.Mul(1.0f / float32(input.Length))
-              for i = 0 to input.Length - 1 do
-                wi.AddRow(grad_, input.[i], 1.0f)
-
-        member x.setTargetCounts(counts : int64[]) =
-              assert(counts.Length = osz_)
-              if args.loss = loss_name.ns
-              then x.initTableNegatives(counts)
-              if args.loss = loss_name.hs
-              then x.buildTree(counts)
-
-        member x.initTableNegatives(counts: int64[]) =
-              negatives <- ResizeArray<int>(counts.Length)
-              let mutable z = 0.0f
-              for i = 0 to counts.Length - 1 do
-                z <- z + float32(counts.[i]) ** 0.5f
-              for i = 0 to counts.Length - 1 do
-                let c = float32(counts.[i]) ** 0.5f
-                for j = 0 to int(c * float32(NEGATIVE_TABLE_SIZE) / z) - 1 do
-                  negatives.Add(i)
-              negatives.Sort(fun x y -> rng_.Next())
-
-        member x.getNegative(target : int) =
-              let mutable negative = 0
-              let rec f () = 
-                negative <- negatives.[negpos]
-                negpos <- (negpos + 1) % negatives.Count
-                if target = negative then f()
-              f()
-              negative
-
-        member x.buildTree(counts : int64[]) =
-              tree <- ResizeArray<Node>(2 * osz_ - 1)
-              
-              for i = 0 to 2 * osz_ - 2 do 
-                tree.Add(Node(-1,-1,-1,1000000000000000L, false))
+    let predict(input : int[], k : int, arr : ResizeArray<KeyValuePair<float32,int>>) engine model =
+        assert(k > 0)
+        let heap = MinHeap(arr) 
+        heap.Reserve(k + 1);
+        computeHidden input model
+        match engine with
+            | HierarhicalSoftmax(m) -> dfs(k, 2 * model.osz - 2, 0.0f, heap) m model
+            | _ -> findKBest(k, heap) model
+        arr.Sort(fun x y -> -x.Key.CompareTo(y.Key))
 
 
-              for i = 0 to osz_ - 1 do
-                let mutable x = tree.[i]
-                x.count <- counts.[i]
-                tree.[i] <- x
-              let mutable leaf = osz_ - 1
-              let mutable node = osz_
-              for i = osz_ to 2 * osz_ - 2 do
-                let mini = Array.zeroCreate 2
-                for j = 0 to 1 do
-                  if leaf >= 0 && tree.[leaf].count < tree.[node].count
-                  then mini.[j] <- leaf
-                       leaf <- leaf - 1
-                  else mini.[j] <- node
-                       node <- node + 1
-                let mutable x = tree.[i]
-                x.left <- mini.[0]
-                x.right <- mini.[1]
-                x.count <- tree.[mini.[0]].count + tree.[mini.[1]].count
-                tree.[i] <- x
+    let update(input : int[], target : int, lr : float32) engine model =
+        assert(target >= 0)
+        assert(target < model.osz)
+        if input.Length > 0 
+        then
+            model.hidden.Zero()
+            for i = 0 to input.Length - 1 do
+                model.hidden.AddRow(model.wi, input.[i])
+            model.hidden.Mul(1.0f / float32(input.Length))
+            model.loss <- model.loss + getEngineLoss target lr engine model
+            model.nexamples <- model.nexamples + 1;
 
-                let mutable x = tree.[mini.[0]]
-                x.parent <- i
-                tree.[mini.[0]] <- x
+            if model.modelName = model_name.sup
+            then model.grad.Mul(1.0f / float32(input.Length))
+            for i = 0 to input.Length - 1 do
+                model.wi.AddRow(model.grad, input.[i], 1.0f)
 
-                let mutable x = tree.[mini.[1]]
-                x.parent <- i
-                x.binary <- true
-                tree.[mini.[1]] <- x
 
-              for i = 0 to osz_ - 1 do
-                let path = ResizeArray<int>()
-                let code = ResizeArray<bool>()
-                let mutable j = i;
-                while tree.[j].parent <> -1 do
-                  path.Add(tree.[j].parent - osz_)
-                  code.Add(tree.[j].binary)
-                  j <- tree.[j].parent
-                paths.Add(path)
-                codes.Add(code)
 
-        member x.getLoss() = loss_ / float32(nexamples_)
+
+        
+
+
+
+        
+
+
 

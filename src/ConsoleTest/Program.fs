@@ -93,8 +93,8 @@ let test modelPath testDataPath label verbose =
 
     let stream = System.IO.File.Open(testDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = streamToLines state.args_.model stream false
-    let model = FastTextM.createModel state 1
-    let r = FastTextM.test(state,model, src,1)
+    let model,engine = FastTextM.createModel state 1
+    let r = FastTextM.test(state,model, engine, src,1)
     assert(r.precision >= 0.97f) 
     assert(r.recall >= 0.97f)
     assert(r.nexamples = 70000) 
@@ -119,8 +119,8 @@ let predict modelPath testDataPath label verbose =
     let state = FastTextM.loadState(modelPath,label,verbose)
     let stream = System.IO.File.Open(testDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = streamToLines state.args_.model stream false
-    let model = FastTextM.createModel state 1
-    let r = src |> Seq.map (FastTextM.predict state model 1)
+    let model,engine = FastTextM.createModel state 1
+    let r = src |> Seq.map (FastTextM.predict state model engine 1)
     let r = Seq.take (predictRes.Length) r 
                 |> Seq.choose id
                 |> Seq.map (List.head >> fst)
