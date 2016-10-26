@@ -90,18 +90,23 @@ module FastTextM =
             vec
 
 
-    let createModel state seed = 
-        let counts = if state.args_.model = model_name.sup
-                     then state.dict_.getCounts(entry_type.label).ToArray()
-                     else state.dict_.getCounts(entry_type.word).ToArray()
-        let model = ModelImplementations.ModelState(state.input_, state.output_, state.args_.model = Args.model_name.sup,  state.args_.dim, state.output_.m, seed)
-        let c : ModelImplementations.IConcreteModel = 
-                                match state.args_.loss with
-                                    | Args.LossName.hs -> upcast ModelImplementations.HierarhicalSoftmaxModel(counts, model)
-                                    | Args.LossName.ns -> upcast ModelImplementations.NegativeSamplingModel(counts, state.args_.neg, model)
-                                    | Args.LossName.softmax -> upcast ModelImplementations.SoftmaxModel(model)
-        Model(model, c)
+    let createModel state seed sharedState = 
         
+        let model = ModelImplementations.ModelState(state.input_, state.output_, state.args_.model = Args.model_name.sup,  state.args_.dim, state.output_.m, seed)
+        Model.createModel model sharedState
+        
+    
+    let createSharedState state =
+        let rng = Random.Mcg31m1()
+        let counts = lazy(if state.args_.model = model_name.sup
+                             then state.dict_.getCounts(entry_type.label).ToArray()
+                             else state.dict_.getCounts(entry_type.word).ToArray())
+        match state.args_.loss with
+            | Args.LossName.hs -> Model.Hierarchical(counts.Value)
+            | Args.LossName.ns ->
+                            let negatives = ModelImplementations.createNegatives counts.Value rng
+                            Model.Negatives(negatives, state.args_.neg)
+            | Args.LossName.softmax -> Model.Softmax()
 
     let printInfo(seconds, tokenCount, lr, progress : float32, loss : float32, thread : int) =
           let t = float32(seconds) 
@@ -208,8 +213,8 @@ module FastTextM =
                                       cts.Cancel()
                     }) , cts.Token
 
-    let worker state (source:MailboxProcessor<RequestLine>) (tkn:CancellationToken) threadId =
-        let model = createModel state threadId
+    let worker state (source:MailboxProcessor<RequestLine>) (tkn:CancellationToken) sharedState threadId =
+        let model = createModel state threadId sharedState
 
         let mutable count = 0
         async{
@@ -238,7 +243,8 @@ module FastTextM =
           
           let cts = new CancellationTokenSource()
           let src, tkn = linesSource state.dict_ state.args_ src threads verbose cts.Token
-          let workers = [0..threads - 1] |> Seq.map (worker state src tkn)
+          let sharedState = createSharedState state
+          let workers = [0..threads - 1] |> Seq.map (worker state src tkn sharedState)
           Async.Parallel workers |> Async.Ignore |> Async.RunSynchronously
           cts.Cancel()
           state

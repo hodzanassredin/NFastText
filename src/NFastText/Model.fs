@@ -169,22 +169,23 @@ module ModelImplementations =
 
             member x.FindKBest(k : int, heap : MinHeap)  =
                  dfs(k, 2 * model.Osz - 2, 0.0f, heap) 
+    //negatives array should be shared between 
+    let createNegatives (counts : int64[]) (rng: Random.Mcg31m1)=
+        let negatives = ResizeArray<int>(counts.Length)
+        let mutable z = 0.0f
+        for i = 0 to counts.Length - 1 do
+            z <- z + float32(float(counts.[i]) ** 0.5)
+        for i = 0 to counts.Length - 1 do
+            let c = float32(float(counts.[i]) ** 0.5)
+            for j = 0 to int(c * float32(negativeTableSize) / z) - 1 do
+                negatives.Add(i)
+        negatives.Sort(fun x y -> rng.Next())
+        negatives
 
-    type NegativeSamplingModel(counts : int64[], neg, model : ModelState) =
+    type NegativeSamplingModel(negatives : ResizeArray<int>, neg, model : ModelState) =
         inherit SoftmaxModel(model)
 
-        let negatives = ResizeArray<int>(counts.Length)
         let mutable negpos = 0
-        
-        do
-            let mutable z = 0.0f
-            for i = 0 to counts.Length - 1 do
-                z <- z + float32(float(counts.[i]) ** 0.5)
-            for i = 0 to counts.Length - 1 do
-                let c = float32(float(counts.[i]) ** 0.5)
-                for j = 0 to int(c * float32(negativeTableSize) / z) - 1 do
-                    negatives.Add(i)
-            negatives.Sort(fun x y -> model.Rng.Next())
 
         let getNegative(target : int) =
             let mutable negative = 0
@@ -243,4 +244,18 @@ module Model =
                 then model.Grad.Mul(1.0f / float32(input.Length))
                 for i = 0 to input.Length - 1 do
                     model.Wi.AddRow(model.Grad, input.[i], 1.0f)
+    
+    type ModelSharedState = 
+        | Negatives of ResizeArray<int> * int
+        | Hierarchical of int64[]
+        | Softmax of Unit
+
+    let createModel model sharedState =
+        let c : ModelImplementations.IConcreteModel = 
+                match sharedState with
+                    | Negatives(negatives, neg) -> upcast NegativeSamplingModel(negatives, neg, model)
+                    | Hierarchical(counts) -> upcast HierarhicalSoftmaxModel(counts, model)
+                    | Softmax() -> upcast SoftmaxModel(model)
+        Model(model, c)
+
 
