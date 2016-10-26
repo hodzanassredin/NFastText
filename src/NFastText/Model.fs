@@ -2,9 +2,8 @@
 module Model =
     open Matrix
     open Args
-    open System.Linq
     open System.Collections.Generic
-    let bfloat32 b = if b then 1.f else 0.f
+    
     let NEGATIVE_TABLE_SIZE = 10000000
     type Node =
        struct
@@ -23,6 +22,8 @@ module Model =
                 binary = binary
             }
        end
+
+    [<AbstractClass>]
     type Model = {
         wi : Matrix 
         wo : Matrix 
@@ -50,6 +51,7 @@ module Model =
             nexamples = 1
         }
 
+    let bfloat32 b = if b then 1.f else 0.f
     let binaryLogistic(target : int, label : bool, lr : float32) model =
         let dot = model.wo.DotRow(model.hidden, target)
         let score = Utils.sigmoid(dot)
@@ -82,7 +84,7 @@ module Model =
                 if heap.Count > k
                 then heap.RemoveBack()
 
-    let softmax(target : int, lr : float32) model =
+    let softmax model target lr =
         model.grad.Zero()
         computeOutputSoftmax model
         for i = 0 to (model.osz - 1) do
@@ -117,7 +119,7 @@ module Model =
                   dfs(k, model.tree.[node].left, score + Utils.log(1.0f - f), heap) model baseModel
                   dfs(k, model.tree.[node].right, score + Utils.log(f), heap) model baseModel
 
-    let hierarchicalSoftmax(target : int, lr : float32) (model:HSModel) baseModel =
+    let hierarchicalSoftmax (model:HSModel) baseModel target lr =
           let mutable loss = 0.0f
           baseModel.grad.Zero()
           let binaryCode = model.codes.[target]
@@ -141,7 +143,7 @@ module Model =
         f()
         negative
 
-    let negativeSampling(target : int, lr : float32) (model:NSModel) baseModel =
+    let negativeSampling (model:NSModel) baseModel target lr =
         let mutable loss = 0.0f
         baseModel.grad.Zero()
         for n = 0 to model.neg do
@@ -227,15 +229,15 @@ module Model =
 
     let createEngine loss (counts: int64[]) rng neg osz =
         match loss with
-            | loss_name.hs -> createHierarhicalSoftmax counts osz |> HierarhicalSoftmax
-            | loss_name.ns -> createNegativeSampling counts rng neg |> NegativeSampling
-            | loss_name.softmax -> Softmax ()
+            | LossName.hs -> createHierarhicalSoftmax counts osz |> HierarhicalSoftmax
+            | LossName.ns -> createNegativeSampling counts rng neg |> NegativeSampling
+            | LossName.softmax -> Softmax ()
 
-    let getEngineLoss target lr engine model =
+    let getEngineLoss engine model =
         match engine with
-            | NegativeSampling(m) -> negativeSampling(target, lr) m model
-            | HierarhicalSoftmax(m) -> hierarchicalSoftmax(target, lr) m model
-            | Softmax() -> softmax(target, lr) model
+            | NegativeSampling(m) -> negativeSampling m model 
+            | HierarhicalSoftmax(m) -> hierarchicalSoftmax m model 
+            | Softmax() -> softmax model  
 
 
     let predict(input : int[], k : int, arr : ResizeArray<KeyValuePair<float32,int>>) engine model =
@@ -249,7 +251,7 @@ module Model =
         arr.Sort(fun x y -> -x.Key.CompareTo(y.Key))
 
 
-    let update(input : int[], target : int, lr : float32) engine model =
+    let update(input : int[], target : int, lr : float32) model getLoss =
         assert(target >= 0)
         assert(target < model.osz)
         if input.Length > 0 
@@ -258,7 +260,7 @@ module Model =
             for i = 0 to input.Length - 1 do
                 model.hidden.AddRow(model.wi, input.[i])
             model.hidden.Mul(1.0f / float32(input.Length))
-            model.loss <- model.loss + getEngineLoss target lr engine model
+            model.loss <- model.loss + getLoss target lr
             model.nexamples <- model.nexamples + 1;
 
             if model.modelName = model_name.sup

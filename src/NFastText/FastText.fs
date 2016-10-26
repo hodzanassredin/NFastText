@@ -110,12 +110,12 @@ module FastTextM =
     let supervised(model : Model, engine :Model.ModelEngine,
                                  lr : float32,
                                  line : ResizeArray<int>,
-                                 labels : ResizeArray<int>) =
+                                 labels : ResizeArray<int>) getLoss =
           if labels.Count = 0 || line.Count = 0 then ()
           else let i = model.rng.DiscrUniformSample(0, labels.Count - 1)
-               Model.update(line.ToArray(), labels.[i], lr) engine model
+               Model.update(line.ToArray(), labels.[i], lr) model getLoss
 
-    let cbow(state, model : Model, engine :Model.ModelEngine, lr : float32, line : ResizeArray<int>) =
+    let cbow(state, model : Model, engine :Model.ModelEngine, lr : float32, line : ResizeArray<int>) getLoss=
         let bow =  ResizeArray<int>()
         for w = 0 to line.Count - 1 do
             let boundary = model.rng.DiscrUniformSample(1, state.args_.ws)
@@ -124,15 +124,15 @@ module FastTextM =
                 if c <> 0 && w + c >= 0 && w + c < line.Count
                 then let ngrams = state.dict_.getNgrams(line.[w + c])
                      bow.AddRange(ngrams)
-            Model.update(bow.ToArray(), line.[w], lr) engine model
+            Model.update(bow.ToArray(), line.[w], lr) model getLoss
 
-    let skipgram(state, model : Model, engine :Model.ModelEngine, lr : float32, line : ResizeArray<int>) =
+    let skipgram(state, model : Model, engine :Model.ModelEngine, lr : float32, line : ResizeArray<int>) getLoss =
         for w = 0 to line.Count - 1 do
             let boundary = model.rng.DiscrUniformSample(1, state.args_.ws)
             let ngrams = state.dict_.getNgrams(line.[w])
             for c = -boundary to boundary do
                 if c <> 0 && w + c >= 0 && w + c < line.Count
-                then Model.update(ngrams.ToArray(), line.[w + c], lr) engine model
+                then Model.update(ngrams.ToArray(), line.[w + c], lr) model getLoss
         
     let test(state, model : Model, engine :Model.ModelEngine, lines, k : int) =
         let mutable nexamples = 0
@@ -205,6 +205,7 @@ module FastTextM =
 
     let worker state (source:MailboxProcessor<RequestLine>) (tkn:CancellationToken) threadId =
         let model, engine = createModel state threadId
+        let getLoss = Model.getEngineLoss engine model
         let mutable count = 0
         async{
             while not tkn.IsCancellationRequested do
@@ -213,10 +214,10 @@ module FastTextM =
                 for line in lines do
                     let line, labels = state.dict_.mapLine (model.rng) line
                     match state.args_.model with
-                        | model_name.sup -> state.dict_.addNgrams(line, state.args_.wordNgrams)
-                                            supervised(model, engine, lr, line, labels)
-                        | model_name.cbow -> cbow(state, model, engine, lr, line)
-                        | model_name.sg -> skipgram(state, model, engine, lr, line)
+                        | model_name.sup -> state.dict_.addNgrams(line, state.args_.wordNgrams) 
+                                            supervised(model, engine, lr, line, labels) getLoss
+                        | model_name.cbow -> cbow(state, model, engine, lr, line) getLoss
+                        | model_name.sg -> skipgram(state, model, engine, lr, line) getLoss
                         | _ -> failwith "not supported model"
                     count <- count + line.Count + labels.Count
         }

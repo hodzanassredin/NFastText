@@ -1,7 +1,7 @@
 ﻿namespace NFastText
 module Args =
     type model_name = cbow=1 | sg = 2 | sup = 3
-    type loss_name = hs=1 | ns = 2 | softmax = 3
+    type LossName = hs=1 | ns = 2 | softmax = 3
     type Args = {
          //learning rate
          lr  : float32
@@ -18,7 +18,7 @@ module Args =
          //max length of word ngram
          wordNgrams  : int
          //loss function {ns, hs, softmax}
-         loss  : loss_name
+         loss  : LossName
          model : model_name
          //number of buckets
          bucket  : int
@@ -39,7 +39,7 @@ module Args =
          minCount  = 5
          neg  = 5
          wordNgrams  = 1
-         loss  = loss_name.ns
+         loss  = LossName.ns
          model  = model_name.sg
          bucket  = 2000000
          minn  = 3

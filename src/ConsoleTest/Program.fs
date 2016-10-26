@@ -130,7 +130,7 @@ let predict modelPath testDataPath label verbose =
 
 let trainArgs = { Args.defaultArgs with
                     model  = Args.model_name.sup
-                    loss  = Args.loss_name.softmax
+                    loss  = Args.LossName.softmax
                     minn  = 0
                     maxn  = 0
                     dim=10
@@ -149,7 +149,7 @@ let skipgramArgs = { Args.defaultArgs with
                         epoch = 1
                         minCount = 5
                         neg = 5
-                        loss = Args.loss_name.ns
+                        loss = Args.LossName.ns
                         bucket = 2000000
                         minn = 3
                         maxn = 6
@@ -162,17 +162,12 @@ let skipgramArgs = { Args.defaultArgs with
 
 [<EntryPoint>]
 let main argv = 
-    //skipgram model
-    train "D:/ft/data/text9" "D:/ft/result/text9.bin" 4 skipgramArgs "__label__" 2
-    getWordVectors "D:/ft/result/text9.bin" "D:/ft/data/queries.txt" "__label__" 2
-
     //classification model
     train "D:/ft/data/dbpedia.train" "D:/ft/result/dbpedia.bin" 4 trainArgs "__label__" 2
     test "D:/ft/result/dbpedia.bin" "D:/ft/data/dbpedia.test" "__label__" 2
     predict "D:/ft/result/dbpedia.bin" "D:/ft/data/dbpedia.test" "__label__" 2
-
-
-
-    
+    //skipgram model
+    train "D:/ft/data/text9" "D:/ft/result/text9.bin" 4 skipgramArgs "__label__" 2
+    getWordVectors "D:/ft/result/text9.bin" "D:/ft/data/queries.txt" "__label__" 2
 
     0 // return an integer exit code
