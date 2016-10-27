@@ -112,7 +112,7 @@ module FastTextM =
           let t = float32(seconds) 
           let wst = float32(tokenCount) / t
           let lr = lr * (1.0f - progress)
-          let eta = int(t / progress * (1.f - progress) / float32(thread))
+          let eta = int(t / progress * (1.f - progress))
           let etah = eta / 3600
           let etam = (eta - etah * 3600) / 60
           printf "\rProgress: %.1f%%  words/sec/thread: %.0f  lr: %.6f  loss: %.6f  eta: %dh %dm" (100.f * progress) wst lr loss etah etam
