@@ -81,7 +81,7 @@ module FastTextM =
     let textVector state rng ln =
             let line,_ = state.dict_.mapLine rng ln
             let vec = createVector(state.args_.dim)
-            state.dict_.addNgrams(line, state.args_.wordNgrams)
+            state.dict_.addWordNgrams(line, state.args_.wordNgrams)
             vec.Zero()
             for i = 0 to line.Count - 1 do
                 vec.AddRow(state.input_, line.[i])
@@ -150,7 +150,7 @@ module FastTextM =
         let mutable precision = 0.0f
         let lines = lines |> Seq.map (state.dict_.mapLine model.Rng) 
         for line,labels in lines do
-            state.dict_.addNgrams(line, state.args_.wordNgrams);
+            state.dict_.addWordNgrams(line, state.args_.wordNgrams);
             if (labels.Count > 0 && line.Count > 0) 
             then
                 let predictions = ResizeArray<KeyValuePair<float32,int>>()
@@ -170,7 +170,7 @@ module FastTextM =
           
     let predict state (model : Model) (k : int) line =
             let line,_ = state.dict_.mapLine model.Rng line
-            state.dict_.addNgrams(line, state.args_.wordNgrams)
+            state.dict_.addWordNgrams(line, state.args_.wordNgrams)
             if line.Count = 0 
             then None
             else
@@ -224,7 +224,7 @@ module FastTextM =
                 for line in lines do
                     let line, labels = state.dict_.mapLine (model.Rng) line
                     match state.args_.model with
-                        | model_name.sup -> state.dict_.addNgrams(line, state.args_.wordNgrams) 
+                        | model_name.sup -> state.dict_.addWordNgrams(line, state.args_.wordNgrams) 
                                             supervised(model, lr, line, labels) 
                         | model_name.cbow -> cbow(state, model, lr, line) 
                         | model_name.sg -> skipgram(state, model, lr, line) 

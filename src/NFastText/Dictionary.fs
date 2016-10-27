@@ -108,9 +108,6 @@ module Dictionary =
             while j < word.Length && n <= args.maxn do
                 ngram.Add(word.[j])
                 j <- j + 1
-                while j < word.Length do
-                    ngram.Add(word.[j])
-                    j <- j + 1
                 if n >= args.minn
                 then let h : int = int(getHash(ngram) % uint32(args.bucket)) 
                      ngrams.Add(nwords_ + h)
@@ -175,7 +172,7 @@ module Dictionary =
             if words_.[i].etype = etype then counts.Add(words_.[i].count)
           counts
 
-      member x.addNgrams(line : ResizeArray<int>, n : int) =
+      member x.addWordNgrams(line : ResizeArray<int>, n : int) =
           let line_size = line.Count
           for i = 0 to line_size - 1 do
             let mutable h = uint64(line.[i])
