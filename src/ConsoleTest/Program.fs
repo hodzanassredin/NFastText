@@ -4,11 +4,11 @@ open NFastText
 open NFastText.FastTextM
 open System.IO
 open NFastText.Dictionary
-let streamToWords (s:Stream) =
+let streamToWords showLineEndings (s:Stream) =
         let r = new StreamReader(s)
         let splitters = [|' '; '\t'; '\n'; '\v'; '\f'; '\r'|]
         let word = ResizeArray<char>()
-        let buffer = Array.zeroCreate 100000
+        let buffer = Array.zeroCreate 1000000
         let mutable readedChars = buffer.Length
         seq{
             while readedChars = buffer.Length do
@@ -19,39 +19,33 @@ let streamToWords (s:Stream) =
                     then if word.Count > 0 
                             then yield System.String.Join("", word)
                                  word.Clear()
+                         if showLineEndings && char = '\n'
+                         then yield "\n"
                     else word.Add(char)
             if word.Count > 0 then yield System.String.Join("", word)
         }
 
-let split length (xs: 'T[]) =
-    let rec loop (xs: 'T[]) =
-        seq{
-            if xs.Length <= length 
-            then yield xs
-            else yield xs.[..length-1]
-                 yield! loop xs.[length..]
-        }
-    loop xs
-
-let MAX_LINE_SIZE = 1024
+let maxLineSize = 1024
 let rec streamToLines model (s:Stream) fromStartOnEof = 
-    let r = new StreamReader(s)
+    let maxLineSize = if model <> Args.model_name.sup
+                      then maxLineSize
+                      else System.Int32.MaxValue
+    
     let rec loop() =
-        let max_line_size = if model <> Args.model_name.sup
-                            then MAX_LINE_SIZE
-                            else System.Int32.MaxValue
+        let words = (streamToWords true s).GetEnumerator()
         seq{
-                let mutable line = r.ReadLine()
-                while line <> null do
-                    let lnWords = line.Split([|' '; '\t'; '\n'; '\v'; '\f'; '\r'|])
-                    for chunk in split max_line_size lnWords do
-                        yield chunk 
-                    line <- r.ReadLine()
+            let line = ResizeArray<_>()
+            while words.MoveNext() do
+                let word = words.Current
+                if word <> "\n" then line.Add(word)
+                if (word = "\n" && line.Count > 0) || line.Count = maxLineSize
+                then yield line.ToArray()
+                     line.Clear()
 
-                if fromStartOnEof 
-                then s.Position <- 0L
-                     yield! loop()
-                }
+            if fromStartOnEof 
+            then s.Position <- 0L
+                 yield! loop()
+        }
     loop()
 
 let getTextVectors modelPath dataPath label verbose =
@@ -67,14 +61,14 @@ let getWordVectors modelPath dataPath label verbose =
     let state = FastTextM.loadState(modelPath,label,verbose)
     let stream = System.IO.File.Open(dataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     assert(state.args_.model <> Args.model_name.sup)
-    let words = streamToWords stream
+    let words = streamToWords false stream
     let vectors = words |> Seq.map (NFastText.FastTextM.getVector state)
     let r = Seq.head vectors
     assert(r.Length = state.args_.dim)
 
 let train trainDataPath modelPath threads args label verbose =
     let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
-    let words = streamToWords stream
+    let words = streamToWords false stream
     let dict = Dictionary(args, label, verbose)
     dict.readFromFile(words)
     let state = FastTextM.createState args dict
