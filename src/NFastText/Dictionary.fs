@@ -12,7 +12,7 @@ module Dictionary =
             h <- h * 16777619u
         h
 
-    type Entry =
+    type private Entry =
        struct
           val mutable word: String
           val mutable count: int64
@@ -36,13 +36,13 @@ module Dictionary =
       let mutable pdiscard_ : ResizeArray<float32> = null
       let word2int_ = ResizeArray<int>(Array.create MAX_VOCAB_SIZE -1)
 
-      member x.find(w : String) =
+      member private x.find(w : String) =
           let mutable h = int(getHash(w) % uint32(MAX_VOCAB_SIZE))
           while word2int_.[h] <> -1 && not(words_.[word2int_.[h]].word = w) do
             h <- (h + 1) % MAX_VOCAB_SIZE
           h
 
-      member x.add(w : String) =
+      member private x.add(w : String) =
           let h = x.find(w)
           ntokens_ <- ntokens_ + 1
           if word2int_.[h] = -1 

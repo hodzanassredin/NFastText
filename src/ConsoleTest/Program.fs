@@ -79,7 +79,7 @@ let train trainDataPath modelPath threads args label verbose =
     let state = FastTextM.train state verbose src threads
     FastTextM.saveState (modelPath) state 
     if state.args_.model <> Args.model_name.sup 
-    then FastTextM.saveVectors(state, modelPath)
+    then FastTextM.saveVectors(state, modelPath + ".vec")
 
 
 let test modelPath testDataPath label verbose =
