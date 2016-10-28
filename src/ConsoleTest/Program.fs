@@ -34,10 +34,10 @@ let train trainDataPath modelPath threads args label verbose =
     let state = FastTextM.createState args dict
 
     let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
-    let src = if state.args_.model = Args.model_name.sup
-              then FileReader.infinite (FileReader.streamToLines) stream
-              else FileReader.streamToWordsChunks maxWordsChunkSize stream
-
+    let mapper = if state.args_.model = Args.model_name.sup
+                  then FileReader.streamToLines
+                  else FileReader.streamToWordsChunks maxWordsChunkSize
+    let src = FileReader.infinite mapper stream
     let state = FastTextM.train state verbose src threads
     FastTextM.saveState (modelPath) state 
     if state.args_.model <> Args.model_name.sup 
