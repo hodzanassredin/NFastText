@@ -71,6 +71,7 @@
     <Compile Include="Args.fs" />
     <Compile Include="Dictionary.fs" />
     <Compile Include="FastText.fs" />
+    <Compile Include="FileReader.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

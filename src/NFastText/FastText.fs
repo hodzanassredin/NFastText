@@ -198,7 +198,7 @@ module FastTextM =
                         while not tkn.IsCancellationRequested do
                             let! (count, loss, replyChannel) = inbox.Receive()
                             tokenCount <- tokenCount + int64(count)
-                            let progress = float32(tokenCount) / float32(args.epoch * ntokens)
+                            let progress = float32(float(tokenCount) / float(int64(args.epoch) * int64(ntokens)))
                             let lr = args.lr * (1.0f - progress)
                             lineSrc.MoveNext() |> ignore
                             replyChannel.Reply(lr, lineSrc.Current)
@@ -207,7 +207,7 @@ module FastTextM =
                                 if verbose > 1 && tokenCount % int64(args.lrUpdateRate * threads) < int64(count) 
                                 then printInfo(start.Elapsed.TotalSeconds, tokenCount, args.lr, progress, loss, threads)
                             
-                                if tokenCount >= int64(args.epoch * ntokens)
+                                if tokenCount >= int64(args.epoch) * int64(ntokens)
                                 then  printInfo(start.Elapsed.TotalSeconds, tokenCount, args.lr, 1.0f, loss, threads)
                                       printfn ""
                                       cts.Cancel()
