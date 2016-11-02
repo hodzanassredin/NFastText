@@ -1,7 +1,6 @@
 ﻿namespace NFastText
 module Dictionary =
     open System
-    open Args
     type id_type = int
     type entry_type = word=0uy | label=1uy
     
@@ -27,7 +26,8 @@ module Dictionary =
     let EOW = ">"
     let MAX_VOCAB_SIZE = 30000000
     
-    type Dictionary(args : Args, label : String, verbose : int) =
+    type Dictionary(minCount, minn, maxn, wordNgrams, bucket, useDiscard, t, label : String, verbose : int) =
+        let bucket = if wordNgrams <= 1uy && maxn = 0uy then 0 else bucket 
         let mutable size_ = 0
         let mutable nwords_ = 0
         let mutable nlabels_ = 0
@@ -35,14 +35,15 @@ module Dictionary =
         let words_ = ResizeArray<Entry>()
         let mutable pdiscard_ : ResizeArray<float32> = null
         let word2int_ = ResizeArray<int>(Array.create MAX_VOCAB_SIZE -1)
-
+        do
+            assert(maxn = 0uy || wordNgrams <= 1uy)//currently chargrams and wordgrams are not supported at the same time
         member private x.find(w : String) =
             let mutable h = int(getHash(w) % uint32(MAX_VOCAB_SIZE))
             while word2int_.[h] <> -1 && not(words_.[word2int_.[h]].word = w) do
                 h <- (h + 1) % MAX_VOCAB_SIZE
             h
 
-        member private x.add(w : String) =
+        member x.add(w : String) =
             let h = x.find(w)
             ntokens_ <- ntokens_ + 1
             if word2int_.[h] = -1 
@@ -58,6 +59,11 @@ module Dictionary =
                 x.count <- x.count + 1L
                 words_.[word2int_.[h]] <- x
 
+        member x.GetWords() =
+            seq{
+                for i = 0 to nwords_ do
+                    yield words_.[i].word
+            }
         member x.nwords() = nwords_
 
         member x.nlabels() = nlabels_
@@ -79,9 +85,7 @@ module Dictionary =
         member x.discard(id : int, rand : float32) =
             assert(id >= 0)
             //assert(id < nwords_) //this is incorrect in source cpp needs to be size check thresold fn
-            if args.model = model_name.sup 
-            then false
-            else rand > pdiscard_.[id]
+            useDiscard && rand > pdiscard_.[id]
 
         member x.getId(w : String) =
             let h = x.find(w)
@@ -97,23 +101,20 @@ module Dictionary =
             assert(id < size_)
             words_.[id].word
 
-        member x.GetStrChar(word : string, i) = uint32(word.[i])
-
-
         member x.computeNgrams(word : String, ngrams : ResizeArray<int>) =
             for i = 0 to word.Length - 1 do
             let ngram = ResizeArray<char>()
             let mutable j = i
-            let mutable n = 1
-            while j < word.Length && n <= args.maxn do
+            let mutable n = 1uy
+            while j < word.Length && n <= maxn do
                 ngram.Add(word.[j])
                 j <- j + 1
-                if n >= args.minn
-                then let h : int = int(getHash(ngram) % uint32(args.bucket)) 
+                if n >= minn
+                then let h : int = int(getHash(ngram) % uint32(bucket)) 
                      ngrams.Add(nwords_ + h)
-                n <- n + 1
+                n <- n + 1uy
 
-        member x.initNgrams() =
+        member x.initNgrams () =
             for i = 0 to size_ - 1 do
                 let word = BOW + words_.[i].word + EOW
                 words_.[i].subwords.Add(i);
@@ -129,9 +130,9 @@ module Dictionary =
                 then x.threshold(minThreshold)
                      minThreshold <- minThreshold + 1L
             printfn "\rRead %d M words" (ntokens_  / 1000000)
-            x.threshold(int64(args.minCount))
+            x.threshold(int64(minCount))
             x.initTableDiscard()
-            x.initNgrams()
+            x.initNgrams ()
             printfn "Number of words:  %d" nwords_
             printfn "Number of labels: %d" nlabels_
             if size_ = 0
@@ -164,7 +165,7 @@ module Dictionary =
             pdiscard_ <- ResizeArray<float32>(size_)
             for i = 0 to size_ - 1 do
                 let f = float32(words_.[i].count) / float32(ntokens_)
-                pdiscard_.Add(sqrt(args.t / f) + args.t / f)
+                pdiscard_.Add(sqrt(t / f) + t / f)
 
         member x.getCounts(etype : entry_type) =
             let counts = ResizeArray<int64>()
@@ -172,13 +173,14 @@ module Dictionary =
                 if words_.[i].etype = etype then counts.Add(words_.[i].count)
             counts
 
-        member x.addWordNgrams(line : ResizeArray<int>, n : int) =
-            let line_size = line.Count
-            for i = 0 to line_size - 1 do
-                let mutable h = uint64(line.[i])
-                for j = i + 1 to min (line_size - 1) (i + n) do
-                    h <- h * 116049371uL + uint64(line.[j])
-                    line.Add(nwords_ + int(h % uint64(args.bucket)))
+        member x.addWordNgrams(line : ResizeArray<int>) =
+            if wordNgrams > 1uy 
+            then let line_size = line.Count
+                 for i = 0 to line_size - 1 do
+                     let mutable h = uint64(line.[i])
+                     for j = i + 1 to min (line_size - 1) (i + int(wordNgrams)) do
+                         h <- h * 116049371uL + uint64(line.[j])
+                         line.Add(nwords_ + int(h % uint64(bucket)))
 
         member x.mapLine(rng : Random.Mcg31m1) (line : string[]) =
             let words = ResizeArray<int>()
@@ -232,6 +234,6 @@ module Dictionary =
                 words_.Add(Entry(word, count, etype, ResizeArray(), false))
                 word2int_.[x.find(word)] <- i
             x.initTableDiscard()
-            x.initNgrams()
+            x.initNgrams ()
 
 

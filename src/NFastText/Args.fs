@@ -1,8 +1,7 @@
 ﻿namespace NFastText
 module Args =
-    type model_name = cbow=1 | sg = 2 | sup = 3
     type LossName = hs=1 | ns = 2 | softmax = 3
-    type Args = {
+    type CommonArgs = {
          //learning rate
          lr  : float32
          //size of word vectors
@@ -15,75 +14,112 @@ module Args =
          minCount  : int
          //number of negatives sampled
          neg  : int
-         //max length of word ngram
-         wordNgrams  : int
          //loss function {ns, hs, softmax}
          loss  : LossName
-         model : model_name
          //number of buckets
          bucket  : int
-         //min length of char ngram
-         minn  : int
-         //max length of char ngram
-         maxn  : int
+         
          //change the rate of updates for the learning rate
          lrUpdateRate  : int
          //sampling threshold
          t  : float32
     }
-    let defaultArgs = {
+    type VecModel = cbow=1 | sg = 2
+
+    type ModelArgs = 
+        | Classifier of wordNgrams  : byte//max length of word ngram
+        | Vectorizer of model : VecModel * minn  : byte * maxn  : byte//min length of char ngram
+                                                                      //max length of char ngram
+    type Args = {
+        common :CommonArgs 
+        model : ModelArgs
+        }
+
+    let private defaultArgs = {
          lr  = 0.05f
          dim  = 100
          ws  = 5
          epoch  = 5
          minCount  = 5
          neg  = 5
-         wordNgrams  = 1
          loss  = LossName.ns
-         model  = model_name.sg
          bucket  = 2000000
-         minn  = 3
-         maxn  = 6
          lrUpdateRate  = 100
          t  = 1e-4f
         }
 
+    let defaultVetorizerAgrs : Args =
+        {
+            common = { defaultArgs with 
+                        lr = 0.025f
+                        dim = 100
+                        ws = 5
+                        epoch = 1
+                        minCount = 5
+                        neg = 5
+                        loss = LossName.ns
+                        bucket = 2000000
+                        t = 1e-4f
+                        lrUpdateRate = 100
+                   }
+            model = Vectorizer(VecModel.sg,3uy,6uy)
+        }
+    let defaultClassifierAgrs : Args = 
+         {
+            common = { defaultArgs with
+                        loss  = LossName.softmax
+                        dim=10
+                        lr = 0.1f
+                        minCount = 1
+                        bucket = 10000000
+                        epoch = 5
+                    }
+            model = Classifier(2uy)
+         }
 
-
-    let validate args =
-        if args.wordNgrams  <= 1 && args.maxn  = 0
-        then {args with bucket  = 0}
-        else args
-
-    let save(args, out : System.IO.BinaryWriter) = 
+    let saveCommon args (out : System.IO.BinaryWriter) = 
           out.Write(args.dim)
           out.Write(args.ws)
           out.Write(args.epoch)
           out.Write(args.minCount)
           out.Write(args.neg)
-          out.Write(args.wordNgrams)
           out.Write(int(args.loss))
-          out.Write(int(args.model))
           out.Write(args.bucket)
-          out.Write(args.minn)
-          out.Write(args.maxn)
           out.Write(args.lrUpdateRate)
           out.Write(args.t)
 
-    let load(inp : System.IO.BinaryReader) : Args= 
+    let save args  (out : System.IO.BinaryWriter) = 
+        match args.model with
+            | Classifier(wordNgrams) -> out.Write(true)
+                                        out.Write(wordNgrams)
+                                        saveCommon(args.common) 
+            | Vectorizer(model,minn,maxn) ->  out.Write(false)
+                                              out.Write(int(model))
+                                              out.Write(minn)
+                                              out.Write(maxn)
+                                              saveCommon(args.common) 
+
+    let loadCommon(inp : System.IO.BinaryReader) : CommonArgs= 
         { defaultArgs with
               dim  = inp.ReadInt32()
               ws  = inp.ReadInt32()
               epoch  = inp.ReadInt32()
               minCount  = inp.ReadInt32()
               neg  = inp.ReadInt32()
-              wordNgrams  = inp.ReadInt32()
               loss  = LanguagePrimitives.EnumOfValue <| inp.ReadInt32()
-              model  = LanguagePrimitives.EnumOfValue <| inp.ReadInt32()
               bucket  = inp.ReadInt32()
-              minn  = inp.ReadInt32()
-              maxn  = inp.ReadInt32()
               lrUpdateRate  = inp.ReadInt32()
               t  = inp.ReadSingle()
         }
 
+    let load (inp : System.IO.BinaryReader) : Args =
+        let isClassifier = inp.ReadBoolean()
+        if isClassifier 
+        then let wordNgrams = inp.ReadByte()
+             let args = loadCommon inp
+             { common = args; model = Classifier(wordNgrams)}
+        else let model  = LanguagePrimitives.EnumOfValue <| inp.ReadInt32()
+             let minn  = inp.ReadByte()
+             let maxn  = inp.ReadByte()
+             let args = loadCommon inp
+             { common = args; model = Vectorizer(model,minn,maxn)}

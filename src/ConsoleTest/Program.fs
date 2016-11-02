@@ -9,7 +9,7 @@ let maxWordsChunkSize = 1024
 
 let getTextVectors state dataPath  =
     let stream = System.IO.File.Open(dataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
-    assert(state.args_.model = Args.model_name.sup)
+    assert(match state.args_.model with Args.Classifier(_) -> true | _ -> false)
     let rng = Random.Mcg31m1()
     let src = FileReader.streamToWordsChunks maxWordsChunkSize stream 
     src |> Seq.map (NFastText.FastTextM.textVector state rng)
@@ -19,20 +19,22 @@ let loadWordsFromFile dataPath =
     FileReader.streamToWords stream
 
 let getWordVectors state words =
-    assert(state.args_.model <> Args.model_name.sup)
+    assert(match state.args_.model with Args.Vectorizer(_) -> true | _ -> false)
     words |> Seq.map (fun w -> w, NFastText.FastTextM.getVector state w)
 
-let train trainDataPath threads args label verbose pretrainedWordVectors =
+let train trainDataPath threads (args:Args.Args) label verbose pretrainedWordVectors =
     let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let words = FileReader.streamToWords stream 
-    let dict = Dictionary(args, label, verbose)
+    let dict = match args.model with
+                | Args.Classifier(wordNGrams) ->  Dictionary(args.common.minCount, 0uy, 0uy, wordNGrams, args.common.bucket, false, args.common.t, label, verbose)
+                | Args.Vectorizer(_, minn, maxn) ->  Dictionary(args.common.minCount, minn, maxn, 0uy, args.common.bucket, true, args.common.t, label, verbose)
     dict.readFromFile(words)
     let state = FastTextM.createState args dict
 
     let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
-    let mapper = if state.args_.model = Args.model_name.sup
-                  then FileReader.streamToLines
-                  else FileReader.streamToWordsChunks maxWordsChunkSize
+    let mapper = match state.args_.model with 
+                    | Args.Classifier(_) -> FileReader.streamToLines
+                    | Args.Vectorizer(_) -> FileReader.streamToWordsChunks maxWordsChunkSize
     let src = FileReader.infinite mapper stream
     FastTextM.train state verbose src threads pretrainedWordVectors
 
@@ -69,36 +71,6 @@ let predict state testDataPath =
                 |> Seq.choose id
     r
     
-let trainArgs = { Args.defaultArgs with
-                    model  = Args.model_name.sup
-                    loss  = Args.LossName.softmax
-                    minn  = 0
-                    maxn  = 0
-                    dim=10
-                    lr = 0.1f
-                    wordNgrams = 2
-                    minCount = 1
-                    bucket = 10000000
-                    epoch = 5
-               }
-
-let skipgramArgs = { Args.defaultArgs with 
-                        model  = Args.model_name.sg
-                        lr = 0.025f
-                        dim = 100
-                        ws = 5
-                        epoch = 1
-                        minCount = 5
-                        neg = 5
-                        loss = Args.LossName.ns
-                        bucket = 2000000
-                        minn = 3
-                        maxn = 6
-                        t = 1e-4f
-                        lrUpdateRate = 100
-                   }
-
- 
 
 
 [<EntryPoint>]
@@ -126,20 +98,26 @@ let main argv =
 
     let corpus = "D:/tmp/fast_text_brand_safety.txt_without_stop_morph"
     let getVectors() = 
-        let myArgs = {skipgramArgs with epoch = 100
-                                        dim=100
-                                        minCount = 1
-                                         }
+        let myArgs =  {Args.defaultVetorizerAgrs with 
+                                common = {
+                                            Args.defaultVetorizerAgrs.common with 
+                                                epoch = 100
+                                                dim=100
+                                                minCount = 1
+                                         }}
         let vecModel = train (corpus + ".train") 4 myArgs "__label__" 2 None
         let words = vecModel.dict_.GetWords() 
         Some(getWordVectors vecModel words|> Array.ofSeq)
     let vectors = None//getVectors()
-    let myArgs = {trainArgs with epoch = 400
-                                 dim=10
-                                 wordNgrams = 1
-                                 //minCount = 100
-                                 //lr = 0.05f
-                                 }
+    let myArgs = {Args.defaultClassifierAgrs with 
+                      common = { Args.defaultClassifierAgrs.common with
+                                     epoch = 400
+                                     dim=10
+                                     //minCount = 100
+                                     //lr = 0.05f
+                                }
+                      model = Args.Classifier(1uy)
+                 }
     let classificationModel = train (corpus + ".train") 4 myArgs "__label__" 2 vectors
     let result = test classificationModel (corpus + ".train") 
     printfn "train precision %A" result.precision
@@ -148,7 +126,7 @@ let main argv =
     printfn "test precision %A" result.precision
     System.Console.ReadKey() |> ignore
     //skipgram model
-    let skipgram = train "D:/ft/data/text9" 4 skipgramArgs "__label__" 2 None
+    let skipgram = train "D:/ft/data/text9" 4 Args.defaultVetorizerAgrs "__label__" 2 None
     let words = loadWordsFromFile "D:/ft/data/queries.txt" 
     let vecs = getWordVectors skipgram words
 

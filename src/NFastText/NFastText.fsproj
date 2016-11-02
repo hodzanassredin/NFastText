@@ -68,8 +68,8 @@
     <Compile Include="Heap.fs" />
     <Compile Include="Matrix.fs" />
     <Compile Include="Model.fs" />
-    <Compile Include="Args.fs" />
     <Compile Include="Dictionary.fs" />
+    <Compile Include="Args.fs" />
     <Compile Include="FastText.fs" />
     <Compile Include="FileReader.fs" />
   </ItemGroup>

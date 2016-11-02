@@ -34,7 +34,7 @@ module FastTextM =
     let saveState filename state =
           use ofs = try  new System.IO.BinaryWriter(System.IO.File.Open(filename, System.IO.FileMode.Create))                    
                     with ex -> failwith "Model file cannot be opened for saving!"
-          Args.save(state.args_, ofs)
+          Args.save state.args_ ofs
           state.dict_.save(ofs)
           Matrix.save(state.input_, ofs)
           Matrix.save(state.output_, ofs)
@@ -46,7 +46,10 @@ module FastTextM =
                     with ex -> failwith "Model file cannot be opened for loading!"
           try
               let args = Args.load(ifs)
-              let dict_ = Dictionary(args, label, verbose)
+              let dict_ = match args.model with
+                            | Classifier(wordNGrams) -> Dictionary(args.common.minCount, 0uy, 0uy, wordNGrams, args.common.bucket, false, args.common.t, label, verbose)
+                            | Vectorizer(_, minn, maxn) -> Dictionary(args.common.minCount, minn, maxn, 0uy, args.common.bucket, true, args.common.t, label, verbose)
+
               dict_.load(ifs)
               let input_ = Matrix.load(ifs)
               let output_ = Matrix.load(ifs)
@@ -61,7 +64,7 @@ module FastTextM =
 
     let getVector state (word : String) =
           let ngrams = state.dict_.getNgrams(word)
-          let vec = createVector(state.args_.dim)
+          let vec = createVector(state.args_.common.dim)
           for i = 0 to ngrams.Count - 1 do
              vec.AddRow(state.input_, ngrams.[i])
           if ngrams.Count > 0 
@@ -71,7 +74,7 @@ module FastTextM =
     let saveVectors(state, output : string) =
           use ofs = try new System.IO.StreamWriter(output + ".vec") 
                     with ex -> failwith "Error opening file for saving vectors."
-          ofs.WriteLine(sprintf "%d %d" (state.dict_.nwords()) (state.args_.dim))
+          ofs.WriteLine(sprintf "%d %d" (state.dict_.nwords()) (state.args_.common.dim))
           for i = 0 to state.dict_.nwords() - 1 do
             let word = state.dict_.getWord(i)
             let vec = getVector state word
@@ -80,8 +83,8 @@ module FastTextM =
     
     let textVector state rng ln =
             let line,_ = state.dict_.mapLine rng ln
-            let vec = createVector(state.args_.dim)
-            state.dict_.addWordNgrams(line, state.args_.wordNgrams)
+            let vec = createVector(state.args_.common.dim)
+            state.dict_.addWordNgrams(line)
             vec.Zero()
             for i = 0 to line.Count - 1 do
                 vec.AddRow(state.input_, line.[i])
@@ -91,24 +94,26 @@ module FastTextM =
 
 
     let createModel state seed sharedState = 
-        
-        let model = ModelImplementations.ModelState(state.input_, state.output_, state.args_.model = Args.model_name.sup,  state.args_.dim, state.output_.m, seed)
+        let isSup = match state.args_.model with Classifier(_) -> true | _ -> false
+        let model = ModelImplementations.ModelState(state.input_, state.output_, isSup,  state.args_.common.dim, state.output_.m, seed)
         Model.createModel model sharedState
         
     
     let createSharedState state =
         let rng = Random.Mcg31m1()
-        let counts = lazy(if state.args_.model = model_name.sup
-                             then state.dict_.getCounts(entry_type.label).ToArray()
-                             else state.dict_.getCounts(entry_type.word).ToArray())
-        match state.args_.loss with
+        let tp = match state.args_.model with
+                            | Classifier(_) -> entry_type.label
+                            | _ -> entry_type.word
+
+        let counts = lazy(state.dict_.getCounts(tp).ToArray())
+        match state.args_.common.loss with
             | Args.LossName.hs -> Model.Hierarchical(counts.Value)
             | Args.LossName.ns ->
                             let negatives = ModelImplementations.createNegatives counts.Value rng
-                            Model.Negatives(negatives, state.args_.neg)
+                            Model.Negatives(negatives, state.args_.common.neg)
             | Args.LossName.softmax -> Model.Softmax()
 
-    let printInfo(seconds, tokenCount, lr, progress : float32, loss : float32, thread : int) =
+    let printInfo(seconds, tokenCount, lr, progress : float32, loss : float32) =
           let t = float32(seconds) 
           let wst = float32(tokenCount) / t
           let lr = lr * (1.0f - progress)
@@ -128,7 +133,7 @@ module FastTextM =
     let cbow(state, model : Model, lr : float32, line : ResizeArray<int>) =
         let bow =  ResizeArray<int>()
         for w = 0 to line.Count - 1 do
-            let boundary = model.Rng.DiscrUniformSample(1, state.args_.ws)
+            let boundary = model.Rng.DiscrUniformSample(1, state.args_.common.ws)
             bow.Clear()
             for c = -boundary to boundary do
                 if c <> 0 && w + c >= 0 && w + c < line.Count
@@ -138,7 +143,7 @@ module FastTextM =
 
     let skipgram(state, model : Model, lr : float32, line : ResizeArray<int>) =
         for w = 0 to line.Count - 1 do
-            let boundary = model.Rng.DiscrUniformSample(1, state.args_.ws)
+            let boundary = model.Rng.DiscrUniformSample(1, state.args_.common.ws)
             let ngrams = state.dict_.getNgrams(line.[w])
             for c = -boundary to boundary do
                 if c <> 0 && w + c >= 0 && w + c < line.Count
@@ -150,7 +155,7 @@ module FastTextM =
         let mutable precision = 0.0f
         let lines = lines |> Seq.map (state.dict_.mapLine model.Rng) 
         for line,labels in lines do
-            state.dict_.addWordNgrams(line, state.args_.wordNgrams);
+            state.dict_.addWordNgrams(line);
             if (labels.Count > 0 && line.Count > 0) 
             then
                 let predictions = ResizeArray<KeyValuePair<float32,int>>()
@@ -170,7 +175,7 @@ module FastTextM =
           
     let predict state (model : Model) (k : int) line =
             let line,_ = state.dict_.mapLine model.Rng line
-            state.dict_.addWordNgrams(line, state.args_.wordNgrams)
+            state.dict_.addWordNgrams(line)
             if line.Count = 0 
             then None
             else
@@ -187,31 +192,31 @@ module FastTextM =
     type RequestLine = int  * float32 * AsyncReplyChannel<ResponseLine> 
 
     let linesSource (dict:Dictionary) args (src : seq<_>) threads verbose (tkn:CancellationToken)  =
-       let cts = new CancellationTokenSource()
-       let src = src |> Seq.chunkBySize 10
-       MailboxProcessor<RequestLine>.Start(fun inbox ->
-                    let lineSrc = src.GetEnumerator()
-                    let start = Stopwatch.StartNew()
-                    let ntokens = dict.ntokens()
-                    let mutable tokenCount = 0L
-                    async { 
-                        while not tkn.IsCancellationRequested do
-                            let! (count, loss, replyChannel) = inbox.Receive()
-                            tokenCount <- tokenCount + int64(count)
-                            let progress = float32(float(tokenCount) / float(int64(args.epoch) * int64(ntokens)))
-                            let lr = args.lr * (1.0f - progress)
-                            lineSrc.MoveNext() |> ignore
-                            replyChannel.Reply(lr, lineSrc.Current)
-                            if not cts.IsCancellationRequested
-                            then
-                                if verbose > 1 && tokenCount % int64(args.lrUpdateRate * threads) < int64(count) 
-                                then printInfo(start.Elapsed.TotalSeconds, tokenCount, args.lr, progress, loss, threads)
+        let cts = new CancellationTokenSource()
+        let src = src |> Seq.chunkBySize 10
+        MailboxProcessor<RequestLine>.Start(fun inbox ->
+            let lineSrc = src.GetEnumerator()
+            let start = Stopwatch.StartNew()
+            let ntokens = dict.ntokens()
+            let mutable tokenCount = 0L
+            async { 
+                while not tkn.IsCancellationRequested do
+                    let! (count, loss, replyChannel) = inbox.Receive()
+                    tokenCount <- tokenCount + int64(count)
+                    let progress = float32(float(tokenCount) / float(int64(args.epoch) * int64(ntokens)))
+                    let lr = args.lr * (1.0f - progress)
+                    lineSrc.MoveNext() |> ignore
+                    replyChannel.Reply(lr, lineSrc.Current)
+                    if not cts.IsCancellationRequested
+                    then
+                        if verbose > 1 && tokenCount % int64(args.lrUpdateRate * threads) < int64(count) 
+                        then printInfo(start.Elapsed.TotalSeconds, tokenCount, args.lr, progress, loss)
                             
-                                if tokenCount >= int64(args.epoch) * int64(ntokens)
-                                then  printInfo(start.Elapsed.TotalSeconds, tokenCount, args.lr, 1.0f, loss, threads)
-                                      printfn ""
-                                      cts.Cancel()
-                    }) , cts.Token
+                        if tokenCount >= int64(args.epoch) * int64(ntokens)
+                        then printInfo(start.Elapsed.TotalSeconds, tokenCount, args.lr, 1.0f, loss)
+                             printfn ""
+                             cts.Cancel()
+            }) , cts.Token
 
     let worker state (source:MailboxProcessor<RequestLine>) (tkn:CancellationToken) sharedState threadId =
         let model = createModel state threadId sharedState
@@ -223,11 +228,11 @@ module FastTextM =
                 count <- 0
                 for line in lines do
                     let line, labels = state.dict_.mapLine (model.Rng) line
+                    state.dict_.addWordNgrams(line) 
                     match state.args_.model with
-                        | model_name.sup -> state.dict_.addWordNgrams(line, state.args_.wordNgrams) 
-                                            supervised(model, lr, line, labels) 
-                        | model_name.cbow -> cbow(state, model, lr, line) 
-                        | model_name.sg -> skipgram(state, model, lr, line) 
+                        | Classifier(_) -> supervised(model, lr, line, labels) 
+                        | Vectorizer(VecModel.cbow,_,_) -> cbow(state, model, lr, line) 
+                        | Vectorizer(VecModel.sg,_,_) -> skipgram(state, model, lr, line) 
                         | _ -> failwith "not supported model"
                     count <- count + line.Count + labels.Count
         }
@@ -239,7 +244,7 @@ module FastTextM =
         for word,vec in inp do
             words.Add(word)
             state.dict_.add(word)
-            if vec.Length <> state.args_.dim 
+            if vec.Length <> state.args_.common.dim 
             then failwith "Dimension of pretrained vectors does not match -dim option"
             mat.Add(vec)
 
@@ -248,30 +253,31 @@ module FastTextM =
             let idx = state.dict_.getId(words.[i])
             if idx < 0 || idx >= state.dict_.nwords() 
             then ()
-            else for j = 0 to state.args_.dim - 1 do
+            else for j = 0 to state.args_.common.dim - 1 do
                      state.input_.data.[idx].[j] <- mat.[i].[j]
 
     let train state verbose src threads pretrainedVectors=
           
-          state.input_ <- Matrix.create(state.dict_.nwords() + int(state.args_.bucket), state.args_.dim)
-          state.input_.Uniform(1.0f / float32(state.args_.dim))
+        state.input_ <- Matrix.create(state.dict_.nwords() + int(state.args_.common.bucket), state.args_.common.dim)
+        state.input_.Uniform(1.0f / float32(state.args_.common.dim))
           
-          if state.args_.model = model_name.sup
-          then state.output_ <- Matrix.create(state.dict_.nlabels(), state.args_.dim)
-          else state.output_ <- Matrix.create(state.dict_.nwords(), state.args_.dim)
-          state.output_.Zero()
+        let count = match state.args_.model with
+            | Classifier(_) -> state.dict_.nlabels()
+            | _ -> state.dict_.nwords()
+        state.output_ <- Matrix.create(count, state.args_.common.dim)
+        state.output_.Zero()
 
-          match pretrainedVectors with
+        match pretrainedVectors with
             | Some(xs) -> loadVectors state xs
             | None -> ()
           
-          let cts = new CancellationTokenSource()
-          let src, tkn = linesSource state.dict_ state.args_ src threads verbose cts.Token
-          let sharedState = createSharedState state
-          let workers = [0..threads - 1] |> Seq.map (worker state src tkn sharedState)
-          Async.Parallel workers |> Async.Ignore |> Async.RunSynchronously
-          cts.Cancel()
-          state
+        let cts = new CancellationTokenSource()
+        let src, tkn = linesSource state.dict_ state.args_.common src threads verbose cts.Token
+        let sharedState = createSharedState state
+        let workers = [0..threads - 1] |> Seq.map (worker state src tkn sharedState)
+        Async.Parallel workers |> Async.Ignore |> Async.RunSynchronously
+        cts.Cancel()
+        state
 
   
     
