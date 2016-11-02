@@ -12,6 +12,9 @@ module FileReader =
                 yield line.Split(splitters)
                 line <- r.ReadLine()
         }
+
+    
+        
     
     let infinite (mapper: Stream -> seq<_>) (s:Stream) =
         seq{

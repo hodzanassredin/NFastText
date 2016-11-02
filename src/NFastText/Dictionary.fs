@@ -37,6 +37,7 @@ module Dictionary =
         let word2int_ = ResizeArray<int>(Array.create MAX_VOCAB_SIZE -1)
         do
             assert(maxn = 0uy || wordNgrams <= 1uy)//currently chargrams and wordgrams are not supported at the same time
+        
         member private x.find(w : String) =
             let mutable h = int(getHash(w) % uint32(MAX_VOCAB_SIZE))
             while word2int_.[h] <> -1 && not(words_.[word2int_.[h]].word = w) do

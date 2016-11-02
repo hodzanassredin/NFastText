@@ -8,11 +8,11 @@ open NFastText.Dictionary
 let maxWordsChunkSize = 1024 
 
 let getTextVectors state dataPath  =
-    let stream = System.IO.File.Open(dataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     assert(match state.args_.model with Args.Classifier(_) -> true | _ -> false)
+    let stream = System.IO.File.Open(dataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let rng = Random.Mcg31m1()
     let src = FileReader.streamToWordsChunks maxWordsChunkSize stream 
-    src |> Seq.map (NFastText.FastTextM.textVector state rng)
+    Seq.map (NFastText.FastTextM.textVector state rng) src
 
 let loadWordsFromFile dataPath =
     let stream = System.IO.File.Open(dataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
@@ -20,7 +20,12 @@ let loadWordsFromFile dataPath =
 
 let getWordVectors state words =
     assert(match state.args_.model with Args.Vectorizer(_) -> true | _ -> false)
-    words |> Seq.map (fun w -> w, NFastText.FastTextM.getVector state w)
+    Seq.map (fun w -> w, NFastText.FastTextM.getVector state w) words
+
+let multiReaders path count mapper =
+    [0..count - 1] |> List.map (fun i -> i, System.IO.File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                   |> List.map (fun (i,s) -> s.Position <- s.Length / int64(count) * int64(i)
+                                             mapper s)
 
 let train trainDataPath threads (args:Args.Args) label verbose pretrainedWordVectors =
     let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
@@ -31,18 +36,16 @@ let train trainDataPath threads (args:Args.Args) label verbose pretrainedWordVec
     dict.readFromFile(words)
     let state = FastTextM.createState args dict
 
-    let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let mapper = match state.args_.model with 
                     | Args.Classifier(_) -> FileReader.streamToLines
                     | Args.Vectorizer(_) -> FileReader.streamToWordsChunks maxWordsChunkSize
-    let src = FileReader.infinite mapper stream
-    FastTextM.train state verbose src threads pretrainedWordVectors
+    let src= multiReaders trainDataPath threads (FileReader.infinite mapper)   
+    FastTextM.train state verbose src pretrainedWordVectors
 
 let test state testDataPath =
     let stream = System.IO.File.Open(testDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = FileReader.streamToLines stream 
-    let sharedState = FastTextM.createSharedState state
-    let model = FastTextM.createModel state 1 sharedState
+    let model = FastTextM.createModel state 1 None
     let r = FastTextM.test(state,model, src,1)
     r
     
@@ -65,29 +68,31 @@ let predictRes = [|
 let predict state testDataPath =
     let stream = System.IO.File.Open(testDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
     let src = FileReader.streamToLines stream 
-    let sharedState = FastTextM.createSharedState state
-    let model = FastTextM.createModel state 1 sharedState
+    let model = FastTextM.createModel state 1 None
     let r = src |> Seq.map (FastTextM.predict state model 1)
                 |> Seq.choose id
     r
-    
-
 
 [<EntryPoint>]
 let main argv = 
-
     //classification model
-//    train "D:/ft/data/dbpedia.train" "D:/ft/result/dbpedia.bin" 4 trainArgs "__label__" 2
-//    let r = test "D:/ft/result/dbpedia.bin" "D:/ft/data/dbpedia.test" "__label__" 2  
-//    assert(r.precision >= 0.97f) 
-//    assert(r.recall >= 0.97f)
-//    assert(r.nexamples = 70000) 
-//    let r = predict "D:/ft/result/dbpedia.bin" "D:/ft/data/dbpedia.test" "__label__" 2
-//    let r = Seq.take (predictRes.Length) r 
-//                |> Seq.map (List.head >> fst)
-//                |> Array.ofSeq
-//    assert(r = predictRes)
-
+    let testDbPedia() =
+        let state = train "D:/ft/data/dbpedia.train" 4 Args.defaultClassifierAgrs "__label__" 2 None
+        let r = test state "D:/ft/data/dbpedia.test" 
+        assert(r.precision >= 0.98f) 
+        assert(r.recall >= 0.98f)
+        assert(r.nexamples = 70000) 
+        let r = predict state "D:/ft/data/dbpedia.test" 
+        let r =  r |> Seq.take (predictRes.Length)
+                   |> Seq.map (List.head >> fst)
+                   |> Array.ofSeq
+        assert(r = predictRes)
+    testDbPedia()
+    //skipgram model
+    let skipgram = train "D:/ft/data/text9" 4 Args.defaultVetorizerAgrs "__label__" 2 None
+    let words = loadWordsFromFile "D:/ft/data/queries.txt" 
+    let vecs = getWordVectors skipgram words
+    
     //our models
     //100*10->0.75 bs
     //200*10->0.84 
@@ -101,14 +106,15 @@ let main argv =
         let myArgs =  {Args.defaultVetorizerAgrs with 
                                 common = {
                                             Args.defaultVetorizerAgrs.common with 
-                                                epoch = 100
-                                                dim=100
+                                                epoch = 1
+                                                dim=10
                                                 minCount = 1
                                          }}
         let vecModel = train (corpus + ".train") 4 myArgs "__label__" 2 None
         let words = vecModel.dict_.GetWords() 
         Some(getWordVectors vecModel words|> Array.ofSeq)
-    let vectors = None//getVectors()
+
+    let vectors = getVectors()
     let myArgs = {Args.defaultClassifierAgrs with 
                       common = { Args.defaultClassifierAgrs.common with
                                      epoch = 400
@@ -125,9 +131,6 @@ let main argv =
     let result = test classificationModel (corpus + ".test")
     printfn "test precision %A" result.precision
     System.Console.ReadKey() |> ignore
-    //skipgram model
-    let skipgram = train "D:/ft/data/text9" 4 Args.defaultVetorizerAgrs "__label__" 2 None
-    let words = loadWordsFromFile "D:/ft/data/queries.txt" 
-    let vecs = getWordVectors skipgram words
+    
 
     0 // return an integer exit code

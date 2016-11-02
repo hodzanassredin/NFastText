@@ -91,13 +91,6 @@ module FastTextM =
             if line.Count > 0
             then vec.Mul(1.0f / float32(line.Count))
             vec
-
-
-    let createModel state seed sharedState = 
-        let isSup = match state.args_.model with Classifier(_) -> true | _ -> false
-        let model = ModelImplementations.ModelState(state.input_, state.output_, isSup,  state.args_.common.dim, state.output_.m, seed)
-        Model.createModel model sharedState
-        
     
     let createSharedState state =
         let rng = Random.Mcg31m1()
@@ -113,6 +106,13 @@ module FastTextM =
                             Model.Negatives(negatives, state.args_.common.neg)
             | Args.LossName.softmax -> Model.Softmax()
 
+    let createModel state seed sharedState = 
+        let isSup = match state.args_.model with Classifier(_) -> true | _ -> false
+        let model = ModelImplementations.ModelState(state.input_, state.output_, isSup,  state.args_.common.dim, state.output_.m, seed)
+        match sharedState with
+            | Some(sharedState) -> Model.createModel model sharedState
+            | None -> createSharedState state |> Model.createModel model 
+
     let printInfo(seconds, tokenCount, lr, progress : float32, loss : float32) =
           let t = float32(seconds) 
           let wst = float32(tokenCount) / t
@@ -121,6 +121,7 @@ module FastTextM =
           let etah = eta / 3600
           let etam = (eta - etah * 3600) / 60
           printf "\rProgress: %.1f%%  words/sec/thread: %.0f  lr: %.6f  loss: %.6f  eta: %dh %dm" (100.f * progress) wst lr loss etah etam
+          ()
 
     let supervised(model : Model,
                                  lr : float32,
@@ -188,54 +189,50 @@ module FastTextM =
                     let prob = exp(predictions.[i].Key)
                     res <- (l,prob) :: res
                 Some res
-    type ResponseLine = float32 * string[][]
-    type RequestLine = int  * float32 * AsyncReplyChannel<ResponseLine> 
+    type Updater = int  -> float32 -> float32 * bool
 
-    let linesSource (dict:Dictionary) args (src : seq<_>) threads verbose (tkn:CancellationToken)  =
-        let cts = new CancellationTokenSource()
-        let src = src |> Seq.chunkBySize 10
-        MailboxProcessor<RequestLine>.Start(fun inbox ->
-            let lineSrc = src.GetEnumerator()
-            let start = Stopwatch.StartNew()
-            let ntokens = dict.ntokens()
-            let mutable tokenCount = 0L
-            async { 
-                while not tkn.IsCancellationRequested do
-                    let! (count, loss, replyChannel) = inbox.Receive()
-                    tokenCount <- tokenCount + int64(count)
-                    let progress = float32(float(tokenCount) / float(int64(args.epoch) * int64(ntokens)))
-                    let lr = args.lr * (1.0f - progress)
-                    lineSrc.MoveNext() |> ignore
-                    replyChannel.Reply(lr, lineSrc.Current)
-                    if not cts.IsCancellationRequested
-                    then
-                        if verbose > 1 && tokenCount % int64(args.lrUpdateRate * threads) < int64(count) 
-                        then printInfo(start.Elapsed.TotalSeconds, tokenCount, args.lr, progress, loss)
-                            
-                        if tokenCount >= int64(args.epoch) * int64(ntokens)
-                        then printInfo(start.Elapsed.TotalSeconds, tokenCount, args.lr, 1.0f, loss)
-                             printfn ""
-                             cts.Cancel()
-            }) , cts.Token
+    let stateUpdater (tokenCount : ref<int64>) ntokens args verbose thread  : Updater =
+        let start = Stopwatch.StartNew()
+        let mutable localTokenCount = 0
+        fun count loss -> 
+            localTokenCount <- localTokenCount + count
+            let progress = float32(float(!tokenCount) / float(int64(args.epoch) * int64(ntokens)))
+            let lr = args.lr * (1.0f - progress)
+            if localTokenCount > args.lrUpdateRate
+            then tokenCount := !tokenCount + int64(localTokenCount)
+                 localTokenCount <- 0
+                 if verbose > 1 && thread = 1
+                 then printInfo(start.Elapsed.TotalSeconds, !tokenCount, args.lr, progress, loss)
+            let finished = !tokenCount >= int64(args.epoch) * int64(ntokens)
+            if finished && thread = 1
+            then printInfo(start.Elapsed.TotalSeconds, !tokenCount, args.lr, 1.0f, loss)
+                 printfn ""
+            lr, finished
+            
 
-    let worker state (source:MailboxProcessor<RequestLine>) (tkn:CancellationToken) sharedState threadId =
+    let worker (tokenCount : ref<int64>) (src:seq<string[]>) state sharedState verbose threadId =
+        let up = stateUpdater tokenCount (state.dict_.ntokens()) state.args_.common verbose threadId
+        
         let model = createModel state threadId sharedState
 
-        let mutable count = 0
-        async{
-            while not tkn.IsCancellationRequested do
-                let! lr, lines = source.PostAndAsyncReply(fun replyChannel -> count, model.Loss(), replyChannel)
-                count <- 0
-                for line in lines do
-                    let line, labels = state.dict_.mapLine (model.Rng) line
-                    state.dict_.addWordNgrams(line) 
-                    match state.args_.model with
-                        | Classifier(_) -> supervised(model, lr, line, labels) 
-                        | Vectorizer(VecModel.cbow,_,_) -> cbow(state, model, lr, line) 
-                        | Vectorizer(VecModel.sg,_,_) -> skipgram(state, model, lr, line) 
-                        | _ -> failwith "not supported model"
-                    count <- count + line.Count + labels.Count
-        }
+        let en = src.GetEnumerator()
+        let rec loop lr =
+            async{
+                en.MoveNext() |> ignore
+                let line, labels = state.dict_.mapLine (model.Rng) en.Current
+                let count = line.Count + labels.Count
+                state.dict_.addWordNgrams(line) 
+                match state.args_.model with
+                    | Classifier(_) -> supervised(model, lr, line, labels) 
+                    | Vectorizer(VecModel.cbow,_,_) -> cbow(state, model, lr, line) 
+                    | Vectorizer(VecModel.sg,_,_) -> skipgram(state, model, lr, line) 
+                    | _ -> failwith "not supported model"
+                let lr, finished = up count (model.Loss())
+                if finished 
+                then return ()
+                else return! loop lr
+            }
+        loop <| state.args_.common.lr
 
     let loadVectors state (inp : seq<string * Vector>) = 
         let words = ResizeArray<string>()
@@ -256,7 +253,7 @@ module FastTextM =
             else for j = 0 to state.args_.common.dim - 1 do
                      state.input_.data.[idx].[j] <- mat.[i].[j]
 
-    let train state verbose src threads pretrainedVectors=
+    let train state verbose (src: seq<seq<string[]>>) pretrainedVectors =
           
         state.input_ <- Matrix.create(state.dict_.nwords() + int(state.args_.common.bucket), state.args_.common.dim)
         state.input_.Uniform(1.0f / float32(state.args_.common.dim))
@@ -271,12 +268,12 @@ module FastTextM =
             | Some(xs) -> loadVectors state xs
             | None -> ()
           
-        let cts = new CancellationTokenSource()
-        let src, tkn = linesSource state.dict_ state.args_.common src threads verbose cts.Token
-        let sharedState = createSharedState state
-        let workers = [0..threads - 1] |> Seq.map (worker state src tkn sharedState)
-        Async.Parallel workers |> Async.Ignore |> Async.RunSynchronously
-        cts.Cancel()
+        let sharedState = Some(createSharedState state)
+        let tokenCount = ref 0L
+        src |> Seq.mapi (fun i src -> worker tokenCount src state sharedState verbose i)
+            |> Async.Parallel
+            |> Async.Ignore 
+            |> Async.RunSynchronously
         state
 
   
