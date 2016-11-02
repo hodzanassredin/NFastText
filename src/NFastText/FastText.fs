@@ -232,14 +232,38 @@ module FastTextM =
                     count <- count + line.Count + labels.Count
         }
 
+    let loadVectors state (inp : seq<string * Vector>) = 
+        let words = ResizeArray<string>()
+        let mat = ResizeArray<float32[]>()
+           
+        for word,vec in inp do
+            words.Add(word)
+            state.dict_.add(word)
+            if vec.Length <> state.args_.dim 
+            then failwith "Dimension of pretrained vectors does not match -dim option"
+            mat.Add(vec)
 
-    let train state verbose src threads =
+        state.dict_.threshold(1L)
+        for i = 0 to words.Count - 1 do
+            let idx = state.dict_.getId(words.[i])
+            if idx < 0 || idx >= state.dict_.nwords() 
+            then ()
+            else for j = 0 to state.args_.dim - 1 do
+                     state.input_.data.[idx].[j] <- mat.[i].[j]
+
+    let train state verbose src threads pretrainedVectors=
+          
           state.input_ <- Matrix.create(state.dict_.nwords() + int(state.args_.bucket), state.args_.dim)
+          state.input_.Uniform(1.0f / float32(state.args_.dim))
+          
           if state.args_.model = model_name.sup
           then state.output_ <- Matrix.create(state.dict_.nlabels(), state.args_.dim)
           else state.output_ <- Matrix.create(state.dict_.nwords(), state.args_.dim)
-          state.input_.Uniform(1.0f / float32(state.args_.dim))
           state.output_.Zero()
+
+          match pretrainedVectors with
+            | Some(xs) -> loadVectors state xs
+            | None -> ()
           
           let cts = new CancellationTokenSource()
           let src, tkn = linesSource state.dict_ state.args_ src threads verbose cts.Token
@@ -248,6 +272,6 @@ module FastTextM =
           Async.Parallel workers |> Async.Ignore |> Async.RunSynchronously
           cts.Cancel()
           state
-          
 
-
+  
+    
