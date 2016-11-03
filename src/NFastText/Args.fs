@@ -1,6 +1,20 @@
 ﻿namespace NFastText
 module Args =
-    type LossName = hs=1 | ns = 2 | softmax = 3
+    type Loss = 
+             | Hs
+             | Ns of neg : int 
+             | Softmax
+
+    let lossToInt = function
+        | Hs -> 0
+        | Softmax -> 1
+        | Ns(neg) -> neg + 1
+        
+    let lossFromInt = function
+        | 0 -> Hs
+        | 1 -> Softmax
+        | neg -> Ns(neg - 1)
+
     type CommonArgs = {
          //learning rate
          lr  : float32
@@ -12,10 +26,9 @@ module Args =
          epoch  : int
          //minimal number of word occurences
          minCount  : int
-         //number of negatives sampled
-         neg  : int
+
          //loss function {ns, hs, softmax}
-         loss  : LossName
+         loss  : Loss
          //number of buckets
          bucket  : int
          
@@ -41,8 +54,7 @@ module Args =
          ws  = 5
          epoch  = 5
          minCount  = 5
-         neg  = 5
-         loss  = LossName.ns
+         loss  = Loss.Ns(neg = 5)
          bucket  = 2000000
          lrUpdateRate  = 100
          t  = 1e-4f
@@ -56,8 +68,6 @@ module Args =
                         ws = 5
                         epoch = 1
                         minCount = 5
-                        neg = 5
-                        loss = LossName.ns
                         bucket = 2000000
                         t = 1e-4f
                         lrUpdateRate = 100
@@ -67,7 +77,7 @@ module Args =
     let defaultClassifierAgrs : Args = 
          {
             common = { defaultArgs with
-                        loss  = LossName.softmax
+                        loss  = Loss.Softmax
                         dim=10
                         lr = 0.1f
                         minCount = 1
@@ -82,8 +92,7 @@ module Args =
           out.Write(args.ws)
           out.Write(args.epoch)
           out.Write(args.minCount)
-          out.Write(args.neg)
-          out.Write(int(args.loss))
+          out.Write(lossToInt(args.loss))
           out.Write(args.bucket)
           out.Write(args.lrUpdateRate)
           out.Write(args.t)
@@ -105,8 +114,7 @@ module Args =
               ws  = inp.ReadInt32()
               epoch  = inp.ReadInt32()
               minCount  = inp.ReadInt32()
-              neg  = inp.ReadInt32()
-              loss  = LanguagePrimitives.EnumOfValue <| inp.ReadInt32()
+              loss  = lossFromInt <| inp.ReadInt32()
               bucket  = inp.ReadInt32()
               lrUpdateRate  = inp.ReadInt32()
               t  = inp.ReadSingle()

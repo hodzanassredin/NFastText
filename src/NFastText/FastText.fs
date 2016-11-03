@@ -100,11 +100,11 @@ module FastTextM =
 
         let counts = lazy(state.dict_.getCounts(tp).ToArray())
         match state.args_.common.loss with
-            | Args.LossName.hs -> Model.Hierarchical(counts.Value)
-            | Args.LossName.ns ->
+            | Args.Loss.Hs -> Model.Hierarchical(counts.Value)
+            | Args.Loss.Ns(neg) ->
                             let negatives = ModelImplementations.createNegatives counts.Value rng
-                            Model.Negatives(negatives, state.args_.common.neg)
-            | Args.LossName.softmax -> Model.Softmax()
+                            Model.Negatives(negatives, neg)
+            | Args.Loss.Softmax -> Model.Softmax()
 
     let createModel state seed sharedState = 
         let isSup = match state.args_.model with Classifier(_) -> true | _ -> false
