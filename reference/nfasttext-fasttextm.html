@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>FastTextM - NFastText</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="description" content=""/>
+    <meta name="author" content="Shelin Anton"/>
+
+    <script src="https://code.jquery.com/jquery-1.8.0.js"></script>
+    <script src="https://code.jquery.com/ui/1.8.23/jquery-ui.js"></script>
+    <script src="https://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/js/bootstrap.min.js"></script>
+    <link href="https://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.1/css/bootstrap-combined.min.css" rel="stylesheet"/>
+
+    <link type="text/css" rel="stylesheet" href="/NFastText/content/style.css" />
+    <script type="text/javascript" src="/NFastText/content/tips.js"></script>
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="container">
+      <div class="masthead">
+        <ul class="nav nav-pills pull-right">
+          <li><a href="http://fsharp.org">fsharp.org</a></li>
+          <li><a href="https://github.com/hodzanassredin/NFastText">github page</a></li>
+        </ul>
+        <h3 class="muted"><a href="/NFastText/index.html">NFastText</a></h3>
+      </div>
+      <hr />
+      <div class="row">
+        <div class="span9" id="main">
+          
+
+
+
+<h1>FastTextM</h1>
+<p>
+  <span>Namespace: NFastText</span><br />
+</p>
+<div class="xmldoc">
+</div>
+
+<!-- Render nested types and modules, if there are any -->
+  <h2>Nested types and modules</h2>
+  <div>
+      <table class="table table-bordered type-list">
+    <thead>
+      <tr><td>Type</td><td>Description</td></tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td class="type-name">
+            <a href="nfasttext-fasttextm-fasttextstate.html">FastTextState</a>
+          </td>
+          <td class="xmldoc"></td>
+        </tr>
+        <tr>
+          <td class="type-name">
+            <a href="nfasttext-fasttextm-testresult.html">TestResult</a>
+          </td>
+          <td class="xmldoc"></td>
+        </tr>
+        <tr>
+          <td class="type-name">
+            <a href="nfasttext-fasttextm-updater.html">Updater</a>
+          </td>
+          <td class="xmldoc"></td>
+        </tr>
+    </tbody>
+  </table>
+
+  </div>
+
+  <h3>Functions and values</h3>
+  <table class="table table-bordered member-list">
+    <thead>
+      <tr><td>Function or value</td><td>Description</td></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '14', 14)" onmouseover="showTip(event, '14', 14)">
+            cbow (state, model, lr, line)
+          </code>
+          <div class="tip" id="14">
+            <strong>Signature:</strong> (state:FastTextState * model:Model * lr:float32 * line:ResizeArray&lt;int&gt;) -&gt; unit<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L131-131" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '15', 15)" onmouseover="showTip(event, '15', 15)">
+            createModel state seed sharedState
+          </code>
+          <div class="tip" id="15">
+            <strong>Signature:</strong> state:FastTextState -&gt; seed:int -&gt; sharedState:ModelSharedState option -&gt; Model<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L106-106" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '16', 16)" onmouseover="showTip(event, '16', 16)">
+            createSharedState state
+          </code>
+          <div class="tip" id="16">
+            <strong>Signature:</strong> state:FastTextState -&gt; ModelSharedState<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L92-92" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '17', 17)" onmouseover="showTip(event, '17', 17)">
+            createState args dict
+          </code>
+          <div class="tip" id="17">
+            <strong>Signature:</strong> args:Args -&gt; dict:Dictionary -&gt; FastTextState<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L24-24" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '18', 18)" onmouseover="showTip(event, '18', 18)">
+            getVector state word
+          </code>
+          <div class="tip" id="18">
+            <strong>Signature:</strong> state:FastTextState -&gt; word:String -&gt; Vector<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L62-62" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '19', 19)" onmouseover="showTip(event, '19', 19)">
+            loadState (filename, label, verbose)
+          </code>
+          <div class="tip" id="19">
+            <strong>Signature:</strong> (filename:string * label:String * verbose:bool) -&gt; FastTextState<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L40-40" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '20', 20)" onmouseover="showTip(event, '20', 20)">
+            loadVectors state inp
+          </code>
+          <div class="tip" id="20">
+            <strong>Signature:</strong> state:FastTextState -&gt; inp:seq&lt;string * Vector&gt; -&gt; unit<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L234-234" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '21', 21)" onmouseover="showTip(event, '21', 21)">
+            predict state model k line
+          </code>
+          <div class="tip" id="21">
+            <strong>Signature:</strong> state:FastTextState -&gt; model:Model -&gt; k:int -&gt; line:string [] -&gt; (String * float32) list option<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L174-174" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '22', 22)" onmouseover="showTip(event, '22', 22)">
+            printInfo (...)
+          </code>
+          <div class="tip" id="22">
+            <strong>Signature:</strong> (seconds:float * tokenCount:int64 * lr:float32&lt;MeasureOne&gt; * progress:float32 * loss:float32) -&gt; unit<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L113-113" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '23', 23)" onmouseover="showTip(event, '23', 23)">
+            saveState filename state
+          </code>
+          <div class="tip" id="23">
+            <strong>Signature:</strong> filename:string -&gt; state:FastTextState -&gt; unit<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L31-31" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '24', 24)" onmouseover="showTip(event, '24', 24)">
+            saveVectors (state, output)
+          </code>
+          <div class="tip" id="24">
+            <strong>Signature:</strong> (state:FastTextState * output:string) -&gt; unit<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L71-71" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '25', 25)" onmouseover="showTip(event, '25', 25)">
+            skipgram (state, model, lr, line)
+          </code>
+          <div class="tip" id="25">
+            <strong>Signature:</strong> (state:FastTextState * model:Model * lr:float32 * line:ResizeArray&lt;int&gt;) -&gt; unit<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L142-142" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '26', 26)" onmouseover="showTip(event, '26', 26)">
+            stateUpdater (...)
+          </code>
+          <div class="tip" id="26">
+            <strong>Signature:</strong> tokenCount:int64 ref -&gt; ntokens:int -&gt; args:CommonArgs -&gt; verbose:bool -&gt; thread:int -&gt; Updater<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L191-191" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '27', 27)" onmouseover="showTip(event, '27', 27)">
+            supervised (model, lr, line, labels)
+          </code>
+          <div class="tip" id="27">
+            <strong>Signature:</strong> (model:Model * lr:float32 * line:ResizeArray&lt;int&gt; * labels:ResizeArray&lt;int&gt;) -&gt; unit<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L123-123" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '28', 28)" onmouseover="showTip(event, '28', 28)">
+            test (state, model, lines, k)
+          </code>
+          <div class="tip" id="28">
+            <strong>Signature:</strong> (state:FastTextState * model:Model * lines:seq&lt;string []&gt; * k:int) -&gt; TestResult<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L150-150" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '29', 29)" onmouseover="showTip(event, '29', 29)">
+            textVector state rng ln
+          </code>
+          <div class="tip" id="29">
+            <strong>Signature:</strong> state:FastTextState -&gt; rng:Mcg31m1 -&gt; ln:string [] -&gt; Vector<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L81-81" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '30', 30)" onmouseover="showTip(event, '30', 30)">
+            train (...)
+          </code>
+          <div class="tip" id="30">
+            <strong>Signature:</strong> state:FastTextState -&gt; verbose:bool -&gt; src:seq&lt;seq&lt;string []&gt;&gt; -&gt; pretrainedVectors:&#39;b option -&gt; FastTextState<br />
+                          <strong>Type parameters:</strong> 'b          </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L253-253" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="member-name">
+
+          <code onmouseout="hideTip(event, '31', 31)" onmouseover="showTip(event, '31', 31)">
+            worker (...)
+          </code>
+          <div class="tip" id="31">
+            <strong>Signature:</strong> tokenCount:int64 ref -&gt; src:seq&lt;string []&gt; -&gt; state:FastTextState -&gt; sharedState:ModelSharedState option -&gt; verbose:bool -&gt; threadId:int -&gt; Async&lt;unit&gt;<br />
+                      </div>
+        </td>
+        <td class="xmldoc">
+            <a href="https://github.com/hodzanassredin/NFastText/tree/master/src/NFastText/FastText.fs#L210-210" class="github-link">
+              <img src="../content/img/github.png" class="normal" />
+              <img src="../content/img/github-blue.png" class="hover" />
+            </a>
+          
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+        </div>
+        <div class="span3">
+          <img src="/NFastText/img/logo.png" alt="F# Project" style="width:150px;margin:10px" />  
+          <ul class="nav nav-list" id="menu" style="margin-top: 20px;">
+            <li class="nav-header">NFastText</li>
+            <li><a href="/NFastText/index.html">Home page</a></li>
+            <li class="divider"></li>
+            <li><a href="http://nuget.org/packages/NFastText">Get Library via NuGet</a></li>
+            <li><a href="https://github.com/hodzanassredin/NFastText">Source Code on GitHub</a></li>
+            <li><a href="/NFastText/license.html">License</a></li>
+            <li><a href="/NFastText/release-notes.html">Release Notes</a></li>
+            
+            <li class="nav-header">Getting started</li>
+            <li><a href="/NFastText/tutorial.html">Sample tutorial</a></li>
+
+            <li class="nav-header">Documentation</li>
+            <li><a href="/NFastText/reference/index.html">API Reference</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <a href="https://github.com/hodzanassredin/NFastText"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub"/></a>
+  </body>
+  </html>
