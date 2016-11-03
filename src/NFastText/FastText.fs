@@ -250,7 +250,7 @@ module FastTextM =
             else for j = 0 to state.args_.common.dim - 1 do
                      state.input_.data.[idx].[j] <- mat.[i].[j]
 
-    let train state verbose (src: seq<seq<string[]>>) pretrainedVectors =
+    let train state verbose (src: seq<seq<string[]>>) (pretrainedVectors: Option<seq<string * Vector>>) =
           
         state.input_ <- Math.create(state.dict_.Nwords() + int(state.args_.common.bucket), state.args_.common.dim)
         state.input_.Uniform(1.0f / float32(state.args_.common.dim))

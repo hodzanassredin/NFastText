@@ -74,12 +74,12 @@ module Args =
         match args.model with
             | Classifier(wordNgrams) -> out.Write(true)
                                         out.Write(wordNgrams)
-                                        saveCommon(args.common) 
+                                        saveCommon(args.common) out
             | Vectorizer(model,minn,maxn) ->  out.Write(false)
                                               out.Write(int(model))
                                               out.Write(minn)
                                               out.Write(maxn)
-                                              saveCommon(args.common) 
+                                              saveCommon(args.common) out
 
     let loadCommon(inp : System.IO.BinaryReader) : CommonArgs= 
         { empty with
