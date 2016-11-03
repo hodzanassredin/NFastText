@@ -122,7 +122,7 @@ let words = Input.FilePath("D:/ft/data/queries.txt") |> FileReader.streamToWords
 let wrodsWithVectors = Vectorizer.getWordVectors(skipgram,words)
 
 (**
-##Coomon tasks
+##Common tasks
 You could save and load trained models
 *)
 FastTextM.saveState "path" state
