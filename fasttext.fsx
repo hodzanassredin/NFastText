@@ -1,4 +1,4 @@
-#I @".\bin\NFastText"
+#I @"./bin/NFastText"
 #r "NFastText.dll"
 
 open NFastText
