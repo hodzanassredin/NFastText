@@ -4,12 +4,18 @@ NFastText is a .net library for efficient learning of word representations and s
 
 ##[Tutorial](https://hodzanassredin.github.io/NFastText/)
 
-##Quick Start
+##Ubuntu Quick Start
+    sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
+    echo "deb http://download.mono-project.com/repo/debian wheezy main" | sudo tee /etc/apt/sources.list.d/mono-xamarin.list
+    sudo apt-get update
+    sudo apt-get install mono-devel fsharp
+    sudo cert-sync /etc/ssl/certs/ca-certificates.crt
+    
     git clone https://github.com/hodzanassredin/nfastText.git
     cd nfastText
     ./build.sh
     ./load_test_data.sh
-    fsi fasttext.fsx
+    fsharpi fasttext.fsx
 
 ## Build Status
 
