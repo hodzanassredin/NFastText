@@ -25,7 +25,7 @@ module Classifier =
                         epoch = 5
                }
 
-    let train trainInput threads (args:Args.CommonArgs) wordNgrams label verbose pretrainedWordVectors =
+    let train(trainInput,threads,args:Args.CommonArgs,wordNgrams,label,verbose,pretrainedWordVectors) =
         let args = {
             Args.Args.common = args
             Args.Args.model = Args.Classifier(wordNgrams)
@@ -33,18 +33,18 @@ module Classifier =
         
         Common.train trainInput threads args label verbose pretrainedWordVectors
     
-    let test state lines =
+    let test (state,k,lines)  =
         let model = FastTextM.createModel state 1 None
-        let r = FastTextM.test(state,model, lines,1)
+        let r = FastTextM.test(state,model, lines,k)
         r
 
-    let predict state lines =
+    let predict(state,k,lines) =
         let model = FastTextM.createModel state 1 None
-        let r = lines |> Seq.map (FastTextM.predict state model 1)
+        let r = lines |> Seq.map (FastTextM.predict state model k)
                       |> Seq.choose id
         r
 
-    let getTextVectors (state: FastTextM.FastTextState) input  =
+    let getTextVectors (state: FastTextM.FastTextState, input)  =
         match state.args_.model with Args.Vectorizer(_) -> failwith "cant vectorize text with vectorizer, use classifier" | _ -> ()
         let rng = Mcg31m1()
         let src = FileReader.streamToWordsChunks input 
@@ -63,7 +63,7 @@ module Vectorizer=
                         lrUpdateRate = 100
                }
 
-    let train trainInput threads (args:Args.CommonArgs) vecModel minChargramSize maxChargramSize verbose =
+    let train(trainInput,threads, args:Args.CommonArgs, vecModel,minChargramSize,maxChargramSize,verbose) =
         let args = {
             Args.Args.common = args
             Args.Args.model = Args.Vectorizer(vecModel,minChargramSize,maxChargramSize)
@@ -71,7 +71,7 @@ module Vectorizer=
         
         Common.train trainInput threads args "__label__" verbose None
 
-    let getWordVectors (state: FastTextM.FastTextState) words =
+    let getWordVectors (state: FastTextM.FastTextState, words) =
         match state.args_.model with Args.Classifier(_) -> failwith "cant vectorize text with classifier, use vectorizer" | _ -> ()
         Seq.map (fun w -> w, NFastText.FastTextM.getVector state w) words
 

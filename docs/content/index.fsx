@@ -20,28 +20,79 @@ Documentation
   <div class="span1"></div>
 </div>
 
-Example
+Description
 -------
+NFastText is a port of facebook's classification and vectorization tool to .net.
 
-This example demonstrates using a function defined in this sample library.
+
+#Classification
+
+This example demonstrates hot to train, test and use text classifier.
+
+##Train
+Library expects as an input for training a text file where every line is a single document.
+And every line has to contain one or more labels. Labels are words with a specified prefix.
+
+    __label__spam __label__nsfw enlarge your .... xxx
+    __label__not_a_spam __label__conference Fsharp conference next year
+    ...
+
+Now we are ready to train. You could use some helpers from a module FileReader to use files and streams as input.
 
 *)
 #r "NFastText.dll"
 open NFastText
+open NFastText.FileReader
+let trainData = Input.FilePath("D:/ft/data/dbpedia.train")
+//we train our classifier in 4 threads, using 2 wordgrams and default model args, verbosive, without pretrained vectors and with label prefix "__label__"
+let state = Classifier.train(trainData, 4, Classifier.args, 2uy, "__label__", true, None)
 
-printfn "hello = %i" <| Library.hello 0
+(**
+##Test
+Test expects sequence of lines where line represeted as an array of words.
+You could use helper streamToLines
+*)
+let testData = Input.FilePath("D:/ft/data/dbpedia.test")
+let r = Classifier.test(state, 1, FileReader.streamToLines testData)
+printfn "%A" r
+assert(r.precision >= 9.8f) 
+(**
+##Predict
+Predict expects sequence of lines where line represeted as an array of words.
+It returns sequence of lists where every list contains k best predictions(labels) with weights. 
+*)
+let testData = Input.FilePath("D:/ft/data/dbpedia.test")
+let k = 1
+let r = Classifier.predict(state, k, FileReader.streamToLines testData)
+let r =  r |> Seq.head
+           |> List.head 
+           |> fst
+assert(r = "__label__9")
 
+(**
+#Vectorization
+##Train
+Works almost the same as classification, but train files could be without line endings.
+*)
+let trainData = Input.FilePath("D:/ft/data/text9")
+let skipgram = Vectorizer.train(trainData,4,Vectorizer.args,Args.VecModel.sg, 3uy, 6uy, true)
+(**
+#Vectorization
+##Vectorization
+Expects as input sequence of words and result is sequence of tuples of words with associated vectors.
+*)
+let words = Input.FilePath("D:/ft/data/queries.txt") |> FileReader.streamToWords
+let wrodsWithVectors = Vectorizer.getWordVectors(skipgram,words)
 (**
 Some more info
 
-Samples & documentation
+Above samples use files which could be prepared with scripts(word-vector-example.sh and classification-example.sh) from
+(FastText project)[https://github.com/hodzanassredin/FastText].
+
+More info
 -----------------------
 
-The library comes with comprehensible documentation. 
-It can include tutorials automatically generated from `*.fsx` files in [the content folder][content]. 
-The API reference is automatically generated from Markdown comments in the library implementation.
-
- * [Tutorial](tutorial.html) contains a further explanation of this sample library.
+ * [Original FastText project](https://github.com/facebookresearch/fastText) contains a papers about how it works.
 
  * [API Reference](reference/index.html) contains automatically generated documentation for all types, modules
    and functions in the library. This includes additional brief samples on using most of the

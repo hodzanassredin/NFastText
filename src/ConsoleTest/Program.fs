@@ -23,22 +23,22 @@ module Demo =
         let trainData = Input.FilePath("D:/ft/data/dbpedia.train")
         let testData = Input.FilePath("D:/ft/data/dbpedia.test")
         let args = {Classifier.args with loss = loss}
-        let state = Classifier.train trainData 4 args 2uy "__label__" true None
-        let r = Classifier.test state <| FileReader.streamToLines testData
+        let state = Classifier.train(trainData,4,args,2uy,"__label__",true,None)
+        let r = Classifier.test(state, 1, FileReader.streamToLines testData)
         assert(r.precision >= expectedPrecision) 
         assert(r.recall >= expectedPrecision)
         assert(r.nexamples = 70000) 
-        let r = Classifier.predict state <| FileReader.streamToLines testData
+        let r = Classifier.predict(state, 1, FileReader.streamToLines testData)
         let r =  r |> Seq.take (predictRes.Length)
-                    |> Seq.map (List.head >> fst)
-                    |> Array.ofSeq
+                   |> Seq.map (List.head >> fst)
+                   |> Array.ofSeq
         assert(r = predictRes)
 
     let testSkipgramWiki() =
         let trainData = Input.FilePath("D:/ft/data/text9")
-        let skipgram = Vectorizer.train trainData 4 Vectorizer.args Args.VecModel.sg 3uy 6uy true
+        let skipgram = Vectorizer.train(trainData,4,Vectorizer.args,Args.VecModel.sg, 3uy, 6uy, true)
         let words = Input.FilePath("D:/ft/data/queries.txt") |> FileReader.streamToWords
-        Vectorizer.getWordVectors skipgram words
+        Vectorizer.getWordVectors(skipgram,words)
 
 
     let testMy()=
@@ -50,9 +50,9 @@ module Demo =
                                 dim=10
                                 minCount = 1
                           }
-            let vecModel = Vectorizer.train (Input.FilePath(corpus + ".train")) 4 myArgs Args.VecModel.sg 3uy 6uy true 
+            let vecModel = Vectorizer.train(Input.FilePath(corpus + ".train"), 4, myArgs, Args.VecModel.sg,3uy,6uy,true) 
             let words = vecModel.dict_.GetWords() 
-            Some(Vectorizer.getWordVectors vecModel words|> Array.ofSeq)
+            Some(Vectorizer.getWordVectors(vecModel,words)|> Array.ofSeq)
 
         let vectors = None//getVectors()
         let myArgs = { Classifier.args with
@@ -63,11 +63,11 @@ module Demo =
                      }
 
         let trainData = Input.FilePath(corpus + ".train")
-        let classificationModel = Classifier.train trainData 4 myArgs 2uy "__label__" true vectors
-        let result = Classifier.test classificationModel <| FileReader.streamToLines trainData
+        let classificationModel = Classifier.train(trainData,4,myArgs,2uy,"__label__", true, vectors)
+        let result = Classifier.test(classificationModel, 1, FileReader.streamToLines trainData)
         printfn "train precision %A" result.precision
         let testData = Input.FilePath(corpus + ".test")
-        let result = Classifier.test classificationModel <| FileReader.streamToLines testData
+        let result = Classifier.test(classificationModel, 1, FileReader.streamToLines testData)
         printfn "test precision %A" result.precision
 
 [<EntryPoint>]
