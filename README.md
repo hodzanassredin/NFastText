@@ -8,7 +8,7 @@ NFastText is a .net library for efficient learning of word representations and s
 
     ./buiild.sh
     ./load_test_data.sh
-    ./fsi fasttext.fsx
+    fsi fasttext.fsx
 
 ## Build Status
 
