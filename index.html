@@ -44,84 +44,10 @@
   </div>
   <div class="span1"></div>
 </div>
-<h2><a name="Description" class="anchor" href="#Description">Description</a></h2>
+<h1><a name="Description" class="anchor" href="#Description">Description</a></h1>
 <p>NFastText is a port of facebook's classification and vectorization tool to .net.</p>
 <h1><a name="Data" class="anchor" href="#Data">Data</a></h1>
-<p>Samples use data files which could be prepared by this script.</p>
-<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l"> 1: </span>
-<span class="l"> 2: </span>
-<span class="l"> 3: </span>
-<span class="l"> 4: </span>
-<span class="l"> 5: </span>
-<span class="l"> 6: </span>
-<span class="l"> 7: </span>
-<span class="l"> 8: </span>
-<span class="l"> 9: </span>
-<span class="l">10: </span>
-<span class="l">11: </span>
-<span class="l">12: </span>
-<span class="l">13: </span>
-<span class="l">14: </span>
-<span class="l">15: </span>
-<span class="l">16: </span>
-<span class="l">17: </span>
-<span class="l">18: </span>
-<span class="l">19: </span>
-<span class="l">20: </span>
-<span class="l">21: </span>
-<span class="l">22: </span>
-<span class="l">23: </span>
-<span class="l">24: </span>
-<span class="l">25: </span>
-<span class="l">26: </span>
-<span class="l">27: </span>
-<span class="l">28: </span>
-<span class="l">29: </span>
-<span class="l">30: </span>
-<span class="l">31: </span>
-<span class="l">32: </span>
-<span class="l">33: </span>
-<span class="l">34: </span>
-<span class="l">35: </span>
-</pre></td>
-<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="i">myshuf</span>() {
-  <span class="i">perl</span> <span class="o">-</span><span class="i">MList</span><span class="o">::</span><span class="i">Util</span><span class="o">=</span><span class="i">shuffle</span> <span class="o">-</span><span class="i">e</span> <span class="o">&#39;</span><span class="i">print</span> <span class="i">shuffle</span>(<span class="o">&lt;&gt;</span>);<span class="o">&#39;</span> <span class="s">&quot;$@&quot;</span>;
-}
-
-<span class="i">normalize_text</span>() {
-  <span class="i">tr</span> <span class="o">&#39;</span>[<span class="o">:</span><span class="i">upper</span><span class="o">:</span>]<span class="s">&#39; &#39;</span>[<span class="o">:</span><span class="i">lower</span><span class="o">:</span>]<span class="o">&#39;</span> | <span class="i">sed</span> <span class="o">-</span><span class="i">e</span> <span class="o">&#39;</span><span class="i">s</span><span class="o">/^/</span><span class="i">__label__</span><span class="o">/</span><span class="i">g&#39;</span> | 
-    <span class="i">sed</span> <span class="o">-</span><span class="i">e</span> <span class="s">&quot;s/&#39;/ &#39; /g&quot;</span> <span class="o">-</span><span class="i">e</span> <span class="o">&#39;</span><span class="i">s</span><span class="o">/</span><span class="s">&quot;//g&#39; -e &#39;s/\./ \. /g&#39; -e &#39;s/&lt;br \/&gt;/ /g&#39; \</span>
-<span class="s">        -e &#39;s/,/ , /g&#39; -e &#39;s/(/ ( /g&#39; -e &#39;s/)/ ) /g&#39; -e &#39;s/\!/ \! /g&#39; \</span>
-<span class="s">        -e &#39;s/\?/ \? /g&#39; -e &#39;s/\;/ /g&#39; -e &#39;s/\:/ /g&#39; | tr -s &quot;</span> <span class="s">&quot; | myshuf</span>
-<span class="s">}</span>
-
-<span class="s">DATADIR=data</span>
-
-<span class="s">mkdir -p &quot;</span><span class="o">$</span>{<span class="i">DATADIR</span>}<span class="s">&quot;</span>
-
-<span class="s">if [ ! -f &quot;</span><span class="o">$</span>{<span class="i">DATADIR</span>}<span class="o">/</span><span class="i">dbpedia</span><span class="o">.</span><span class="i">train</span><span class="s">&quot; ]</span>
-<span class="s">then</span>
-<span class="s">  wget -c &quot;</span><span class="i">https</span><span class="o">:</span><span class="c">//googledrive.com/host/0Bz8a_Dbh9QhbQ2Vic1kxMmZZQ1k&quot; -O &quot;${DATADIR}/dbpedia_csv.tar.gz&quot;</span>
-  <span class="i">tar</span> <span class="o">-</span><span class="i">xzvf</span> <span class="s">&quot;${DATADIR}/dbpedia_csv.tar.gz&quot;</span> <span class="o">-</span><span class="i">C</span> <span class="s">&quot;${DATADIR}&quot;</span>
-  <span class="i">cat</span> <span class="s">&quot;${DATADIR}/dbpedia_csv/train.csv&quot;</span> | <span class="i">normalize_text</span> <span class="o">&gt;</span> <span class="s">&quot;${DATADIR}/dbpedia.train&quot;</span>
-  <span class="i">cat</span> <span class="s">&quot;${DATADIR}/dbpedia_csv/test.csv&quot;</span> | <span class="i">normalize_text</span> <span class="o">&gt;</span> <span class="s">&quot;${DATADIR}/dbpedia.test&quot;</span>
-<span class="i">fi</span>
-
-<span class="k">if</span> [ <span class="o">!</span> <span class="o">-</span><span class="i">f</span> <span class="s">&quot;${DATADIR}/text9&quot;</span> ]
-<span class="k">then</span>
-  <span class="i">wget</span> <span class="o">-</span><span class="i">c</span> <span class="i">http</span><span class="o">:</span><span class="c">//mattmahoney.net/dc/enwik9.zip -P &quot;${DATADIR}&quot;</span>
-  <span class="i">unzip</span> <span class="s">&quot;${DATADIR}/enwik9.zip&quot;</span> <span class="o">-</span><span class="i">d</span> <span class="s">&quot;${DATADIR}&quot;</span>
-  <span class="i">perl</span> <span class="i">wikifil</span><span class="o">.</span><span class="i">pl</span> <span class="s">&quot;${DATADIR}/enwik9&quot;</span> <span class="o">&gt;</span> <span class="s">&quot;${DATADIR}&quot;</span><span class="o">/</span><span class="i">text9</span>
-<span class="i">fi</span>
-
-<span class="k">if</span> [ <span class="o">!</span> <span class="o">-</span><span class="i">f</span> <span class="s">&quot;${DATADIR}/rw/rw.txt&quot;</span> ]
-<span class="k">then</span>
-  <span class="i">wget</span> <span class="o">-</span><span class="i">c</span> <span class="i">http</span><span class="o">:</span><span class="c">//www-nlp.stanford.edu/~lmthang/morphoNLM/rw.zip -P &quot;${DATADIR}&quot;</span>
-  <span class="i">unzip</span> <span class="s">&quot;${DATADIR}/rw.zip&quot;</span> <span class="o">-</span><span class="i">d</span> <span class="s">&quot;${DATADIR}&quot;</span>
-<span class="i">fi</span>
-</code></pre></td>
-</tr>
-</table>
+<p>Samples use data files which could be prepared by this <a href="https://github.com/hodzanassredin/NFastText/blob/master/load_test_data.sh">script</a>.</p>
 <h1><a name="Classification" class="anchor" href="#Classification">Classification</a></h1>
 <p>This example demonstrates how to train, test and use text classifier.</p>
 <h2><a name="Train" class="anchor" href="#Train">Train</a></h2>
@@ -140,25 +66,87 @@ And every line has to contain one or more labels. Labels are words with a specif
 <p>Now we are ready to train. You could use some helpers from a module FileReader to use files and streams as input.</p>
 <table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
 <span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
 </pre></td>
-<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="c">//we train our classifier in 4 threads, using 2 wordgrams and default model args, verbosive, without pretrained vectors and with label prefix &quot;__label__&quot;</span>
-<span class="c">let state = Classifier.train(trainData, 4, Classifier.args, 2uy, &quot;__label__&quot;, true, None)</span>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="prep">#r</span> <span class="s">&quot;NFastText.dll&quot;</span>
+<span class="k">open</span> <span class="i">NFastText</span>
+<span class="k">open</span> <span class="i">NFastText</span><span class="o">.</span><span class="i">FileReader</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs1', 1)" onmouseover="showTip(event, 'fs1', 1)" class="i">trainData</span> <span class="o">=</span> <span class="i">Input</span><span class="o">.</span><span class="i">FilePath</span>(<span class="s">&quot;D:/ft/data/dbpedia.train&quot;</span>)
+<span class="c">//we train our classifier in 4 threads, using 2 wordgrams and default model args, verbosive, without pretrained vectors and with label prefix &quot;__label__&quot;</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs2', 2)" onmouseover="showTip(event, 'fs2', 2)" class="i">state</span> <span class="o">=</span> <span class="i">Classifier</span><span class="o">.</span><span class="i">train</span>(<span onmouseout="hideTip(event, 'fs1', 3)" onmouseover="showTip(event, 'fs1', 3)" class="i">trainData</span>, <span class="n">4</span>, <span class="i">Classifier</span><span class="o">.</span><span class="i">args</span>, <span class="n">2uy</span>, <span class="s">&quot;__label__&quot;</span>, <span class="k">true</span>, <span onmouseout="hideTip(event, 'fs3', 4)" onmouseover="showTip(event, 'fs3', 4)" class="i">None</span>)
 </code></pre></td>
 </tr>
 </table>
 <h2><a name="Test" class="anchor" href="#Test">Test</a></h2>
 <p>Test expects a sequence of lines where line represeted as an array of words.
 You could use helper streamToLines</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs4', 5)" onmouseover="showTip(event, 'fs4', 5)" class="i">testData</span> <span class="o">=</span> <span class="i">Input</span><span class="o">.</span><span class="i">FilePath</span>(<span class="s">&quot;D:/ft/data/dbpedia.test&quot;</span>)
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs5', 6)" onmouseover="showTip(event, 'fs5', 6)" class="i">r</span> <span class="o">=</span> <span class="i">Classifier</span><span class="o">.</span><span class="i">test</span>(<span onmouseout="hideTip(event, 'fs2', 7)" onmouseover="showTip(event, 'fs2', 7)" class="i">state</span>, <span class="n">1</span>, <span class="i">FileReader</span><span class="o">.</span><span class="i">streamToLines</span> <span onmouseout="hideTip(event, 'fs4', 8)" onmouseover="showTip(event, 'fs4', 8)" class="i">testData</span>)
+<span onmouseout="hideTip(event, 'fs6', 9)" onmouseover="showTip(event, 'fs6', 9)" class="f">printfn</span> <span class="s">&quot;</span><span class="pf">%A</span><span class="s">&quot;</span> <span onmouseout="hideTip(event, 'fs5', 10)" onmouseover="showTip(event, 'fs5', 10)" class="i">r</span>
+<span class="k">assert</span>(<span onmouseout="hideTip(event, 'fs5', 11)" onmouseover="showTip(event, 'fs5', 11)" class="i">r</span><span class="o">.</span><span class="i">precision</span> <span class="o">&gt;</span><span class="o">=</span> <span class="n">9.8f</span>) 
+</code></pre></td>
+</tr>
+</table>
 <h2><a name="Predict" class="anchor" href="#Predict">Predict</a></h2>
 <p>Predict expects a sequence of lines where line represeted as an array of words.
 It returns a sequence of lists where every list contains k best predictions(labels) with weights.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+<span class="l">3: </span>
+<span class="l">4: </span>
+<span class="l">5: </span>
+<span class="l">6: </span>
+<span class="l">7: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs4', 12)" onmouseover="showTip(event, 'fs4', 12)" class="i">testData</span> <span class="o">=</span> <span class="i">Input</span><span class="o">.</span><span class="i">FilePath</span>(<span class="s">&quot;D:/ft/data/dbpedia.test&quot;</span>)
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs7', 13)" onmouseover="showTip(event, 'fs7', 13)" class="i">k</span> <span class="o">=</span> <span class="n">1</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs8', 14)" onmouseover="showTip(event, 'fs8', 14)" class="i">r</span> <span class="o">=</span> <span class="i">Classifier</span><span class="o">.</span><span class="i">predict</span>(<span onmouseout="hideTip(event, 'fs2', 15)" onmouseover="showTip(event, 'fs2', 15)" class="i">state</span>, <span onmouseout="hideTip(event, 'fs7', 16)" onmouseover="showTip(event, 'fs7', 16)" class="i">k</span>, <span class="i">FileReader</span><span class="o">.</span><span class="i">streamToLines</span> <span onmouseout="hideTip(event, 'fs4', 17)" onmouseover="showTip(event, 'fs4', 17)" class="i">testData</span>)
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs9', 18)" onmouseover="showTip(event, 'fs9', 18)" class="i">r</span> <span class="o">=</span>  <span onmouseout="hideTip(event, 'fs8', 19)" onmouseover="showTip(event, 'fs8', 19)" class="i">r</span> <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs10', 20)" onmouseover="showTip(event, 'fs10', 20)" class="t">Seq</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs11', 21)" onmouseover="showTip(event, 'fs11', 21)" class="f">head</span>
+           <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs12', 22)" onmouseover="showTip(event, 'fs12', 22)" class="t">List</span><span class="o">.</span><span onmouseout="hideTip(event, 'fs13', 23)" onmouseover="showTip(event, 'fs13', 23)" class="f">head</span> 
+           <span class="o">|&gt;</span> <span onmouseout="hideTip(event, 'fs14', 24)" onmouseover="showTip(event, 'fs14', 24)" class="f">fst</span>
+<span class="k">assert</span>(<span onmouseout="hideTip(event, 'fs9', 25)" onmouseover="showTip(event, 'fs9', 25)" class="i">r</span> <span class="o">=</span> <span class="s">&quot;__label__9&quot;</span>)
+</code></pre></td>
+</tr>
+</table>
 <h1><a name="Vectorization" class="anchor" href="#Vectorization">Vectorization</a></h1>
 <h2><a name="Train-1" class="anchor" href="#Train-1">Train</a></h2>
 <p>Works almost the same as classification, but train files could be without line endings.</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs1', 26)" onmouseover="showTip(event, 'fs1', 26)" class="i">trainData</span> <span class="o">=</span> <span class="i">Input</span><span class="o">.</span><span class="i">FilePath</span>(<span class="s">&quot;D:/ft/data/text9&quot;</span>)
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs15', 27)" onmouseover="showTip(event, 'fs15', 27)" class="i">skipgram</span> <span class="o">=</span> <span class="i">Vectorizer</span><span class="o">.</span><span class="i">train</span>(<span onmouseout="hideTip(event, 'fs1', 28)" onmouseover="showTip(event, 'fs1', 28)" class="i">trainData</span>,<span class="n">4</span>,<span class="i">Vectorizer</span><span class="o">.</span><span class="i">args</span>,<span class="i">Args</span><span class="o">.</span><span class="i">VecModel</span><span class="o">.</span><span class="i">sg</span>, <span class="n">3uy</span>, <span class="n">6uy</span>, <span class="k">true</span>)
+</code></pre></td>
+</tr>
+</table>
 <h2><a name="Vectorization-1" class="anchor" href="#Vectorization-1">Vectorization</a></h2>
 <p>Expects as input a sequence of words and result is a sequence of tuples of words with associated vectors.</p>
-<h2><a name="Coomon-tasks" class="anchor" href="#Coomon-tasks">Coomon tasks</a></h2>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs16', 29)" onmouseover="showTip(event, 'fs16', 29)" class="i">words</span> <span class="o">=</span> <span class="i">Input</span><span class="o">.</span><span class="i">FilePath</span>(<span class="s">&quot;D:/ft/data/queries.txt&quot;</span>) <span class="o">|&gt;</span> <span class="i">FileReader</span><span class="o">.</span><span class="i">streamToWords</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs17', 30)" onmouseover="showTip(event, 'fs17', 30)" class="i">wrodsWithVectors</span> <span class="o">=</span> <span class="i">Vectorizer</span><span class="o">.</span><span class="i">getWordVectors</span>(<span onmouseout="hideTip(event, 'fs15', 31)" onmouseover="showTip(event, 'fs15', 31)" class="i">skipgram</span>,<span onmouseout="hideTip(event, 'fs16', 32)" onmouseover="showTip(event, 'fs16', 32)" class="i">words</span>)
+</code></pre></td>
+</tr>
+</table>
+<h2><a name="Common-tasks" class="anchor" href="#Common-tasks">Common tasks</a></h2>
 <p>You could save and load trained models</p>
+<table class="pre"><tr><td class="lines"><pre class="fssnip"><span class="l">1: </span>
+<span class="l">2: </span>
+</pre></td>
+<td class="snippet"><pre class="fssnip highlighted"><code lang="fsharp"><span class="i">FastTextM</span><span class="o">.</span><span class="i">saveState</span> <span class="s">&quot;path&quot;</span> <span onmouseout="hideTip(event, 'fs2', 33)" onmouseover="showTip(event, 'fs2', 33)" class="i">state</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs2', 34)" onmouseover="showTip(event, 'fs2', 34)" class="i">state</span> <span class="o">=</span> <span class="i">FastTextM</span><span class="o">.</span><span class="i">loadState</span> <span class="s">&quot;path&quot;</span>
+</code></pre></td>
+</tr>
+</table>
 <h2><a name="More-info" class="anchor" href="#More-info">More info</a></h2>
 <ul>
 <li><p><a href="https://github.com/facebookresearch/fastText">Original FastText project</a> contains papers about how it works.</p></li>
@@ -177,6 +165,23 @@ also want to read the <a href="https://github.com/hodzanassredin/NFastText/blob/
 redistribution for both commercial and non-commercial purposes. For more information see the
 <a href="https://github.com/hodzanassredin/NFastText/blob/master/LICENSE.txt">License file</a> in the GitHub repository.</p>
 
+<div class="tip" id="fs1">val trainData : obj<br /><br />Full name: Index.trainData</div>
+<div class="tip" id="fs2">val state : obj<br /><br />Full name: Index.state</div>
+<div class="tip" id="fs3">union case Option.None: Option&lt;&#39;T&gt;</div>
+<div class="tip" id="fs4">val testData : obj<br /><br />Full name: Index.testData</div>
+<div class="tip" id="fs5">val r : obj<br /><br />Full name: Index.r</div>
+<div class="tip" id="fs6">val printfn : format:Printf.TextWriterFormat&lt;&#39;T&gt; -&gt; &#39;T<br /><br />Full name: Microsoft.FSharp.Core.ExtraTopLevelOperators.printfn</div>
+<div class="tip" id="fs7">val k : int<br /><br />Full name: Index.k</div>
+<div class="tip" id="fs8">val r : seq&lt;(string * obj) list&gt;<br /><br />Full name: Index.r</div>
+<div class="tip" id="fs9">val r : string<br /><br />Full name: Index.r</div>
+<div class="tip" id="fs10">module Seq<br /><br />from Microsoft.FSharp.Collections</div>
+<div class="tip" id="fs11">val head : source:seq&lt;&#39;T&gt; -&gt; &#39;T<br /><br />Full name: Microsoft.FSharp.Collections.Seq.head</div>
+<div class="tip" id="fs12">Multiple items<br />module List<br /><br />from Microsoft.FSharp.Collections<br /><br />--------------------<br />type List&lt;&#39;T&gt; =<br />&#160;&#160;| ( [] )<br />&#160;&#160;| ( :: ) of Head: &#39;T * Tail: &#39;T list<br />&#160;&#160;interface IEnumerable<br />&#160;&#160;interface IEnumerable&lt;&#39;T&gt;<br />&#160;&#160;member GetSlice : startIndex:int option * endIndex:int option -&gt; &#39;T list<br />&#160;&#160;member Head : &#39;T<br />&#160;&#160;member IsEmpty : bool<br />&#160;&#160;member Item : index:int -&gt; &#39;T with get<br />&#160;&#160;member Length : int<br />&#160;&#160;member Tail : &#39;T list<br />&#160;&#160;static member Cons : head:&#39;T * tail:&#39;T list -&gt; &#39;T list<br />&#160;&#160;static member Empty : &#39;T list<br /><br />Full name: Microsoft.FSharp.Collections.List&lt;_&gt;</div>
+<div class="tip" id="fs13">val head : list:&#39;T list -&gt; &#39;T<br /><br />Full name: Microsoft.FSharp.Collections.List.head</div>
+<div class="tip" id="fs14">val fst : tuple:(&#39;T1 * &#39;T2) -&gt; &#39;T1<br /><br />Full name: Microsoft.FSharp.Core.Operators.fst</div>
+<div class="tip" id="fs15">val skipgram : obj<br /><br />Full name: Index.skipgram</div>
+<div class="tip" id="fs16">val words : obj<br /><br />Full name: Index.words</div>
+<div class="tip" id="fs17">val wrodsWithVectors : obj<br /><br />Full name: Index.wrodsWithVectors</div>
 
         </div>
         <div class="span3">
