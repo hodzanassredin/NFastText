@@ -1,4 +1,4 @@
-DATADIR=./
+DATADIR=./data
 
 myshuf() {
     perl -MList::Util=shuffle -e 'print shuffle(<>);' "$@";
