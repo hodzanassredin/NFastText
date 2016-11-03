@@ -15,6 +15,7 @@ module Common =
         let src = FileReader.split threads trainInput |> List.map (FileReader.infinite mapper) 
         FastTextM.train state verbose src pretrainedWordVectors
 
+
 module Classifier =
     let args = { Args.empty with
                         loss  = Args.Loss.Softmax

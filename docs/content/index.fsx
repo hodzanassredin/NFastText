@@ -77,22 +77,63 @@ Works almost the same as classification, but train files could be without line e
 let trainData = Input.FilePath("D:/ft/data/text9")
 let skipgram = Vectorizer.train(trainData,4,Vectorizer.args,Args.VecModel.sg, 3uy, 6uy, true)
 (**
-#Vectorization
 ##Vectorization
 Expects as input sequence of words and result is sequence of tuples of words with associated vectors.
 *)
 let words = Input.FilePath("D:/ft/data/queries.txt") |> FileReader.streamToWords
 let wrodsWithVectors = Vectorizer.getWordVectors(skipgram,words)
-(**
-Some more info
 
-Above samples use files which could be prepared with scripts(word-vector-example.sh and classification-example.sh) from
-(FastText project)[https://github.com/hodzanassredin/FastText].
+(**
+##Coomon tasks
+You could save and load trained models
+*)
+FastTextM.saveState "path" state
+let state = FastTextM.loadState "path"
+(**
+More info
+
+Above samples use files which could be prepared by this script.
+
+    myshuf() {
+      perl -MList::Util=shuffle -e 'print shuffle(<>);' "$@";
+    }
+
+    normalize_text() {
+      tr '[:upper:]' '[:lower:]' | sed -e 's/^/__label__/g' | \
+        sed -e "s/'/ ' /g" -e 's/"//g' -e 's/\./ \. /g' -e 's/<br \/>/ /g' \
+            -e 's/,/ , /g' -e 's/(/ ( /g' -e 's/)/ ) /g' -e 's/\!/ \! /g' \
+            -e 's/\?/ \? /g' -e 's/\;/ /g' -e 's/\:/ /g' | tr -s " " | myshuf
+    }
+
+    DATADIR=data
+
+    mkdir -p "${DATADIR}"
+
+    if [ ! -f "${DATADIR}/dbpedia.train" ]
+    then
+      wget -c "https://googledrive.com/host/0Bz8a_Dbh9QhbQ2Vic1kxMmZZQ1k" -O "${DATADIR}/dbpedia_csv.tar.gz"
+      tar -xzvf "${DATADIR}/dbpedia_csv.tar.gz" -C "${DATADIR}"
+      cat "${DATADIR}/dbpedia_csv/train.csv" | normalize_text > "${DATADIR}/dbpedia.train"
+      cat "${DATADIR}/dbpedia_csv/test.csv" | normalize_text > "${DATADIR}/dbpedia.test"
+    fi
+
+    if [ ! -f "${DATADIR}/text9" ]
+    then
+      wget -c http://mattmahoney.net/dc/enwik9.zip -P "${DATADIR}"
+      unzip "${DATADIR}/enwik9.zip" -d "${DATADIR}"
+      perl wikifil.pl "${DATADIR}/enwik9" > "${DATADIR}"/text9
+    fi
+
+    if [ ! -f "${DATADIR}/rw/rw.txt" ]
+    then
+      wget -c http://www-nlp.stanford.edu/~lmthang/morphoNLM/rw.zip -P "${DATADIR}"
+      unzip "${DATADIR}/rw.zip" -d "${DATADIR}"
+    fi
 
 More info
 -----------------------
 
- * [Original FastText project](https://github.com/facebookresearch/fastText) contains a papers about how it works.
+ * [Original FastText project](https://github.com/facebookresearch/fastText) contains papers about how it works.
 
  * [API Reference](reference/index.html) contains automatically generated documentation for all types, modules
    and functions in the library. This includes additional brief samples on using most of the
@@ -110,9 +151,9 @@ The library is available under Public Domain license, which allows modification 
 redistribution for both commercial and non-commercial purposes. For more information see the 
 [License file][license] in the GitHub repository. 
 
-  [content]: https://github.com/fsprojects/NFastText/tree/master/docs/content
-  [gh]: https://github.com/fsprojects/NFastText
-  [issues]: https://github.com/fsprojects/NFastText/issues
-  [readme]: https://github.com/fsprojects/NFastText/blob/master/README.md
-  [license]: https://github.com/fsprojects/NFastText/blob/master/LICENSE.txt
+  [content]: https://github.com/hodzanassredin/NFastText/tree/master/docs/content
+  [gh]: https://github.com/hodzanassredin/NFastText
+  [issues]: https://github.com/hodzanassredin/NFastText/issues
+  [readme]: https://github.com/hodzanassredin/NFastText/blob/master/README.md
+  [license]: https://github.com/hodzanassredin/NFastText/blob/master/LICENSE.txt
 *)
