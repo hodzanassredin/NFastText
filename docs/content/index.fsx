@@ -24,7 +24,7 @@ NFastText is a port of facebook's classification and vectorization tool to .net.
 
 #Data
 
-Samples use data files which could be prepared by this script.
+Samples use data files which could be prepared by this [script](https://github.com/hodzanassredin/NFastText/blob/master/load_test_data.sh).
 
 
 
