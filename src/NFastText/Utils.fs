@@ -1,4 +1,5 @@
 ﻿namespace NFastText
+
 module Utils = 
     let spaceCode = 0x20uy
 

@@ -1,7 +1,7 @@
 ﻿namespace NFastText
 
 module ModelImplementations =
-    open Matrix
+    open Math
     open System.Collections.Generic
     
     let negativeTableSize = 10000000
@@ -10,7 +10,7 @@ module ModelImplementations =
          val Wi : Matrix 
          val Wo : Matrix 
          val isSupModel : bool 
-         val Rng : Random.Mcg31m1
+         val Rng : Mcg31m1
          val Grad : Vector
          val Output : Vector
          val Hidden : Vector
@@ -22,7 +22,7 @@ module ModelImplementations =
                 Wi = wi
                 Wo = wo
                 isSupModel = isSupModel
-                Rng = Random.Mcg31m1(seed)
+                Rng = Mcg31m1(seed)
                 Grad = createVector(dim)
                 Output = createVector(osz)
                 Hidden = createVector(dim)
@@ -170,7 +170,7 @@ module ModelImplementations =
             member x.FindKBest(k : int, heap : MinHeap)  =
                  dfs(k, 2 * model.Osz - 2, 0.0f, heap) 
     //negatives array should be shared between 
-    let createNegatives (counts : int64[]) (rng: Random.Mcg31m1)=
+    let createNegatives (counts : int64[]) (rng: Mcg31m1)=
         let negatives = ResizeArray<int>(counts.Length)
         let mutable z = 0.0f
         for i = 0 to counts.Length - 1 do
@@ -208,7 +208,7 @@ module ModelImplementations =
 
 module Model =
     open ModelImplementations
-    open Matrix
+    open Math
     open System.Collections.Generic
 
     type Model(model : ModelState, concrete : IConcreteModel) = 

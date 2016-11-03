@@ -48,7 +48,7 @@ module Args =
         model : ModelArgs
         }
 
-    let private defaultArgs = {
+    let empty = {
          lr  = 0.05f
          dim  = 100
          ws  = 5
@@ -59,33 +59,6 @@ module Args =
          lrUpdateRate  = 100
          t  = 1e-4f
         }
-
-    let defaultVetorizerAgrs : Args =
-        {
-            common = { defaultArgs with 
-                        lr = 0.025f
-                        dim = 100
-                        ws = 5
-                        epoch = 1
-                        minCount = 5
-                        bucket = 2000000
-                        t = 1e-4f
-                        lrUpdateRate = 100
-                   }
-            model = Vectorizer(VecModel.sg,3uy,6uy)
-        }
-    let defaultClassifierAgrs : Args = 
-         {
-            common = { defaultArgs with
-                        loss  = Loss.Softmax
-                        dim=10
-                        lr = 0.1f
-                        minCount = 1
-                        bucket = 10000000
-                        epoch = 5
-                    }
-            model = Classifier(2uy)
-         }
 
     let saveCommon args (out : System.IO.BinaryWriter) = 
           out.Write(args.dim)
@@ -109,7 +82,7 @@ module Args =
                                               saveCommon(args.common) 
 
     let loadCommon(inp : System.IO.BinaryReader) : CommonArgs= 
-        { defaultArgs with
+        { empty with
               dim  = inp.ReadInt32()
               ws  = inp.ReadInt32()
               epoch  = inp.ReadInt32()

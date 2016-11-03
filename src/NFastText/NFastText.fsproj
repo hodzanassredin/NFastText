@@ -66,12 +66,13 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Random.fs" />
     <Compile Include="Heap.fs" />
-    <Compile Include="Matrix.fs" />
+    <Compile Include="Math.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Dictionary.fs" />
     <Compile Include="Args.fs" />
     <Compile Include="FastText.fs" />
     <Compile Include="FileReader.fs" />
+    <Compile Include="Api.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

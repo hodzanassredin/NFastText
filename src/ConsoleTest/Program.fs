@@ -1,53 +1,6 @@
-﻿// Learn more about F# at http://fsharp.org
-// See the 'F# Tutorial' project for more help.
-open NFastText
+﻿open NFastText
 open NFastText.FastTextM
-open System.IO
-open NFastText.Dictionary
-
-let maxWordsChunkSize = 1024 
-
-let getTextVectors state dataPath  =
-    assert(match state.args_.model with Args.Classifier(_) -> true | _ -> false)
-    let stream = System.IO.File.Open(dataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
-    let rng = Random.Mcg31m1()
-    let src = FileReader.streamToWordsChunks maxWordsChunkSize stream 
-    Seq.map (NFastText.FastTextM.textVector state rng) src
-
-let loadWordsFromFile dataPath =
-    let stream = System.IO.File.Open(dataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
-    FileReader.streamToWords stream
-
-let getWordVectors state words =
-    assert(match state.args_.model with Args.Vectorizer(_) -> true | _ -> false)
-    Seq.map (fun w -> w, NFastText.FastTextM.getVector state w) words
-
-let multiReaders path count mapper =
-    [0..count - 1] |> List.map (fun i -> i, System.IO.File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-                   |> List.map (fun (i,s) -> s.Position <- s.Length / int64(count) * int64(i)
-                                             mapper s)
-
-let train trainDataPath threads (args:Args.Args) label verbose pretrainedWordVectors =
-    let stream = System.IO.File.Open(trainDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
-    let words = FileReader.streamToWords stream 
-    let dict = match args.model with
-                | Args.Classifier(wordNGrams) ->  Dictionary(args.common.minCount, 0uy, 0uy, wordNGrams, args.common.bucket, false, args.common.t, label, verbose)
-                | Args.Vectorizer(_, minn, maxn) ->  Dictionary(args.common.minCount, minn, maxn, 0uy, args.common.bucket, true, args.common.t, label, verbose)
-    dict.readFromFile(words)
-    let state = FastTextM.createState args dict
-
-    let mapper = match state.args_.model with 
-                    | Args.Classifier(_) -> FileReader.streamToLines
-                    | Args.Vectorizer(_) -> FileReader.streamToWordsChunks maxWordsChunkSize
-    let src= multiReaders trainDataPath threads (FileReader.infinite mapper)   
-    FastTextM.train state verbose src pretrainedWordVectors
-
-let test state testDataPath =
-    let stream = System.IO.File.Open(testDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
-    let src = FileReader.streamToLines stream 
-    let model = FastTextM.createModel state 1 None
-    let r = FastTextM.test(state,model, src,1)
-    r
+open NFastText.FileReader
     
 let predictRes = [|
     "__label__9"
@@ -64,73 +17,63 @@ let predictRes = [|
     "__label__2"
 |]
 
-
-let predict state testDataPath =
-    let stream = System.IO.File.Open(testDataPath, FileMode.Open, FileAccess.Read, FileShare.Read)
-    let src = FileReader.streamToLines stream 
-    let model = FastTextM.createModel state 1 None
-    let r = src |> Seq.map (FastTextM.predict state model 1)
-                |> Seq.choose id
-    r
-
-[<EntryPoint>]
-let main argv = 
+module Demo =
     //classification model
     let testDbPedia() =
-        let state = train "D:/ft/data/dbpedia.train" 4 Args.defaultClassifierAgrs "__label__" 2 None
-        let r = test state "D:/ft/data/dbpedia.test" 
+        let trainData = Input.FilePath("D:/ft/data/dbpedia.train")
+        let testData = Input.FilePath("D:/ft/data/dbpedia.test")
+        let state = Classifier.train trainData 4 Classifier.args 2uy "__label__" true None
+        let r = Classifier.test state <| FileReader.streamToLines testData
         assert(r.precision >= 0.98f) 
         assert(r.recall >= 0.98f)
         assert(r.nexamples = 70000) 
-        let r = predict state "D:/ft/data/dbpedia.test" 
+        let r = Classifier.predict state <| FileReader.streamToLines testData
         let r =  r |> Seq.take (predictRes.Length)
-                   |> Seq.map (List.head >> fst)
-                   |> Array.ofSeq
+                    |> Seq.map (List.head >> fst)
+                    |> Array.ofSeq
         assert(r = predictRes)
-    testDbPedia()
-    //skipgram model
-    let skipgram = train "D:/ft/data/text9" 4 Args.defaultVetorizerAgrs "__label__" 2 None
-    let words = loadWordsFromFile "D:/ft/data/queries.txt" 
-    let vecs = getWordVectors skipgram words
-    
-    //our models
-    //100*10->0.75 bs
-    //200*10->0.84 
-    //400*10->0.89
-    //400*10*nongrams->0.90
-    //400*20->0.89
-    //800*10->0.89
 
-    let corpus = "D:/tmp/fast_text_brand_safety.txt_without_stop_morph"
-    let getVectors() = 
-        let myArgs =  {Args.defaultVetorizerAgrs with 
-                                common = {
-                                            Args.defaultVetorizerAgrs.common with 
-                                                epoch = 1
-                                                dim=10
-                                                minCount = 1
-                                         }}
-        let vecModel = train (corpus + ".train") 4 myArgs "__label__" 2 None
-        let words = vecModel.dict_.GetWords() 
-        Some(getWordVectors vecModel words|> Array.ofSeq)
+    let testSkipgramWiki() =
+        let trainData = Input.FilePath("D:/ft/data/text9")
+        let skipgram = Vectorizer.train trainData 4 Vectorizer.args Args.VecModel.sg 3uy 6uy true
+        let words = Input.FilePath("D:/ft/data/queries.txt") |> FileReader.streamToWords
+        Vectorizer.getWordVectors skipgram words
 
-    let vectors = getVectors()
-    let myArgs = {Args.defaultClassifierAgrs with 
-                      common = { Args.defaultClassifierAgrs.common with
-                                     epoch = 400
-                                     dim=10
-                                     //minCount = 100
-                                     //lr = 0.05f
-                                }
-                      model = Args.Classifier(1uy)
-                 }
-    let classificationModel = train (corpus + ".train") 4 myArgs "__label__" 2 vectors
-    let result = test classificationModel (corpus + ".train") 
-    printfn "train precision %A" result.precision
+
+    let testMy()=
+        let corpus = "D:/tmp/fast_text_context.txt_without_stop_morph"
+        let getVectors() = 
+            let myArgs =  {
+                            Vectorizer.args with 
+                                epoch = 1
+                                dim=10
+                                minCount = 1
+                          }
+            let vecModel = Vectorizer.train (Input.FilePath(corpus + ".train")) 4 myArgs Args.VecModel.sg 3uy 6uy true 
+            let words = vecModel.dict_.GetWords() 
+            Some(Vectorizer.getWordVectors vecModel words|> Array.ofSeq)
+
+        let vectors = None//getVectors()
+        let myArgs = { Classifier.args with
+                            epoch = 400
+                            dim=10
+                            //minCount = 100
+                            //lr = 0.05f
+                     }
+
+        let trainData = Input.FilePath(corpus + ".train")
+        let classificationModel = Classifier.train trainData 4 myArgs 2uy "__label__" true vectors
+        let result = Classifier.test classificationModel <| FileReader.streamToLines trainData
+        printfn "train precision %A" result.precision
+        let testData = Input.FilePath(corpus + ".test")
+        let result = Classifier.test classificationModel <| FileReader.streamToLines testData
+        printfn "test precision %A" result.precision
+
+[<EntryPoint>]
+let main argv = 
     
-    let result = test classificationModel (corpus + ".test")
-    printfn "test precision %A" result.precision
+    Demo.testDbPedia()
+    Demo.testMy()
+    Demo.testSkipgramWiki() |> ignore
     System.Console.ReadKey() |> ignore
-    
-
     0 // return an integer exit code

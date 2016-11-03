@@ -1,14 +1,11 @@
 ﻿namespace NFastText
 
 module FastTextM =
-    open Matrix
-    open Dictionary
     open Args
     open Model
     open System
     open System.Collections.Generic
     open System.Diagnostics
-    open System.Threading
     open System.IO
 
     type TestResult = {
@@ -21,23 +18,23 @@ module FastTextM =
     type FastTextState = {
         mutable args_ : Args
         mutable dict_ : Dictionary
-        mutable input_ : Matrix.Matrix
-        mutable output_ : Matrix.Matrix
+        mutable input_ : Matrix
+        mutable output_ : Matrix
     }
     let createState args dict = {
         args_ = args
         dict_ = dict
-        input_ = Matrix.createNull()
-        output_ = Matrix.createNull()
+        input_ = Math.createNull()
+        output_ = Math.createNull()
     }
 
     let saveState filename state =
           use ofs = try  new System.IO.BinaryWriter(System.IO.File.Open(filename, System.IO.FileMode.Create))                    
                     with ex -> failwith "Model file cannot be opened for saving!"
           Args.save state.args_ ofs
-          state.dict_.save(ofs)
-          Matrix.save(state.input_, ofs)
-          Matrix.save(state.output_, ofs)
+          state.dict_.Save(ofs)
+          Math.save(state.input_, ofs)
+          Math.save(state.output_, ofs)
           ofs.Close()
 
     let loadState(filename : string, label, verbose) =
@@ -50,9 +47,9 @@ module FastTextM =
                             | Classifier(wordNGrams) -> Dictionary(args.common.minCount, 0uy, 0uy, wordNGrams, args.common.bucket, false, args.common.t, label, verbose)
                             | Vectorizer(_, minn, maxn) -> Dictionary(args.common.minCount, minn, maxn, 0uy, args.common.bucket, true, args.common.t, label, verbose)
 
-              dict_.load(ifs)
-              let input_ = Matrix.load(ifs)
-              let output_ = Matrix.load(ifs)
+              dict_.Load(ifs)
+              let input_ = Math.load(ifs)
+              let output_ = Math.load(ifs)
               {
                   args_ = args
                   dict_ = dict_
@@ -63,8 +60,8 @@ module FastTextM =
             ifs.Close()
 
     let getVector state (word : String) =
-          let ngrams = state.dict_.getNgrams(word)
-          let vec = createVector(state.args_.common.dim)
+          let ngrams = state.dict_.GetNgrams(word)
+          let vec = Math.createVector(state.args_.common.dim)
           for i = 0 to ngrams.Count - 1 do
              vec.AddRow(state.input_, ngrams.[i])
           if ngrams.Count > 0 
@@ -74,17 +71,17 @@ module FastTextM =
     let saveVectors(state, output : string) =
           use ofs = try new System.IO.StreamWriter(output + ".vec") 
                     with ex -> failwith "Error opening file for saving vectors."
-          ofs.WriteLine(sprintf "%d %d" (state.dict_.nwords()) (state.args_.common.dim))
-          for i = 0 to state.dict_.nwords() - 1 do
-            let word = state.dict_.getWord(i)
+          ofs.WriteLine(sprintf "%d %d" (state.dict_.Nwords()) (state.args_.common.dim))
+          for i = 0 to state.dict_.Nwords() - 1 do
+            let word = state.dict_.GetWord(i)
             let vec = getVector state word
             ofs.WriteLine(sprintf "%s %A" word vec)
           ofs.Close()
     
     let textVector state rng ln =
-            let line,_ = state.dict_.mapLine rng ln
-            let vec = createVector(state.args_.common.dim)
-            state.dict_.addWordNgrams(line)
+            let line,_ = state.dict_.vectorize rng ln
+            let vec = Math.createVector(state.args_.common.dim)
+            state.dict_.AddWordNgrams(line)
             vec.Zero()
             for i = 0 to line.Count - 1 do
                 vec.AddRow(state.input_, line.[i])
@@ -93,12 +90,12 @@ module FastTextM =
             vec
     
     let createSharedState state =
-        let rng = Random.Mcg31m1()
+        let rng = Mcg31m1()
         let tp = match state.args_.model with
-                            | Classifier(_) -> entry_type.label
-                            | _ -> entry_type.word
+                            | Classifier(_) -> EntryType.Label
+                            | _ -> EntryType.Word
 
-        let counts = lazy(state.dict_.getCounts(tp).ToArray())
+        let counts = lazy(state.dict_.GetCounts(tp).ToArray())
         match state.args_.common.loss with
             | Args.Loss.Hs -> Model.Hierarchical(counts.Value)
             | Args.Loss.Ns(neg) ->
@@ -120,7 +117,7 @@ module FastTextM =
           let eta = int(t / progress * (1.f - progress))
           let etah = eta / 3600
           let etam = (eta - etah * 3600) / 60
-          printf "\rProgress: %.1f%%  words/sec/thread: %.0f  lr: %.6f  loss: %.6f  eta: %dh %dm" (100.f * progress) wst lr loss etah etam
+          printf "\rProgress: %.1f%%  words/sec/thread: %.0f  lr: %.6f  loss: %.6f  eta: %2dh %2dm\t" (100.f * progress) wst lr loss etah etam
           ()
 
     let supervised(model : Model,
@@ -138,14 +135,14 @@ module FastTextM =
             bow.Clear()
             for c = -boundary to boundary do
                 if c <> 0 && w + c >= 0 && w + c < line.Count
-                then let ngrams = state.dict_.getNgrams(line.[w + c])
+                then let ngrams = state.dict_.GetNgrams(line.[w + c])
                      bow.AddRange(ngrams)
             model.Update(bow.ToArray(), line.[w], lr) 
 
     let skipgram(state, model : Model, lr : float32, line : ResizeArray<int>) =
         for w = 0 to line.Count - 1 do
             let boundary = model.Rng.DiscrUniformSample(1, state.args_.common.ws)
-            let ngrams = state.dict_.getNgrams(line.[w])
+            let ngrams = state.dict_.GetNgrams(line.[w])
             for c = -boundary to boundary do
                 if c <> 0 && w + c >= 0 && w + c < line.Count
                 then model.Update(ngrams.ToArray(), line.[w + c], lr) 
@@ -154,9 +151,9 @@ module FastTextM =
         let mutable nexamples = 0
         let mutable nlabels = 0
         let mutable precision = 0.0f
-        let lines = lines |> Seq.map (state.dict_.mapLine model.Rng) 
+        let lines = lines |> Seq.map (state.dict_.vectorize model.Rng) 
         for line,labels in lines do
-            state.dict_.addWordNgrams(line);
+            state.dict_.AddWordNgrams(line);
             if (labels.Count > 0 && line.Count > 0) 
             then
                 let predictions = ResizeArray<KeyValuePair<float32,int>>()
@@ -175,8 +172,8 @@ module FastTextM =
 
           
     let predict state (model : Model) (k : int) line =
-            let line,_ = state.dict_.mapLine model.Rng line
-            state.dict_.addWordNgrams(line)
+            let line,_ = state.dict_.vectorize model.Rng line
+            state.dict_.AddWordNgrams(line)
             if line.Count = 0 
             then None
             else
@@ -185,7 +182,7 @@ module FastTextM =
                 let mutable res = []
                 for i = 0 to predictions.Count - 1 do
                     if i > 0 then printf " "
-                    let l = state.dict_.getLabel(predictions.[i].Value)
+                    let l = state.dict_.GetLabel(predictions.[i].Value)
                     let prob = exp(predictions.[i].Key)
                     res <- (l,prob) :: res
                 Some res
@@ -201,7 +198,7 @@ module FastTextM =
             if localTokenCount > args.lrUpdateRate
             then tokenCount := !tokenCount + int64(localTokenCount)
                  localTokenCount <- 0
-                 if verbose > 1 && thread = 1
+                 if verbose && thread = 1
                  then printInfo(start.Elapsed.TotalSeconds, !tokenCount, args.lr, progress, loss)
             let finished = !tokenCount >= int64(args.epoch) * int64(ntokens)
             if finished && thread = 1
@@ -211,7 +208,7 @@ module FastTextM =
             
 
     let worker (tokenCount : ref<int64>) (src:seq<string[]>) state sharedState verbose threadId =
-        let up = stateUpdater tokenCount (state.dict_.ntokens()) state.args_.common verbose threadId
+        let up = stateUpdater tokenCount (state.dict_.Ntokens()) state.args_.common verbose threadId
         
         let model = createModel state threadId sharedState
 
@@ -219,9 +216,9 @@ module FastTextM =
         let rec loop lr =
             async{
                 en.MoveNext() |> ignore
-                let line, labels = state.dict_.mapLine (model.Rng) en.Current
+                let line, labels = state.dict_.vectorize (model.Rng) en.Current
                 let count = line.Count + labels.Count
-                state.dict_.addWordNgrams(line) 
+                state.dict_.AddWordNgrams(line) 
                 match state.args_.model with
                     | Classifier(_) -> supervised(model, lr, line, labels) 
                     | Vectorizer(VecModel.cbow,_,_) -> cbow(state, model, lr, line) 
@@ -240,28 +237,28 @@ module FastTextM =
            
         for word,vec in inp do
             words.Add(word)
-            state.dict_.add(word)
+            state.dict_.Add(word)
             if vec.Length <> state.args_.common.dim 
             then failwith "Dimension of pretrained vectors does not match -dim option"
             mat.Add(vec)
 
-        state.dict_.threshold(1L)
+        state.dict_.Threshold(1L)
         for i = 0 to words.Count - 1 do
-            let idx = state.dict_.getId(words.[i])
-            if idx < 0 || idx >= state.dict_.nwords() 
+            let idx = state.dict_.GetId(words.[i])
+            if idx < 0 || idx >= state.dict_.Nwords() 
             then ()
             else for j = 0 to state.args_.common.dim - 1 do
                      state.input_.data.[idx].[j] <- mat.[i].[j]
 
     let train state verbose (src: seq<seq<string[]>>) pretrainedVectors =
           
-        state.input_ <- Matrix.create(state.dict_.nwords() + int(state.args_.common.bucket), state.args_.common.dim)
+        state.input_ <- Math.create(state.dict_.Nwords() + int(state.args_.common.bucket), state.args_.common.dim)
         state.input_.Uniform(1.0f / float32(state.args_.common.dim))
           
         let count = match state.args_.model with
-            | Classifier(_) -> state.dict_.nlabels()
-            | _ -> state.dict_.nwords()
-        state.output_ <- Matrix.create(count, state.args_.common.dim)
+            | Classifier(_) -> state.dict_.Nlabels()
+            | _ -> state.dict_.Nwords()
+        state.output_ <- Math.create(count, state.args_.common.dim)
         state.output_.Zero()
 
         match pretrainedVectors with
