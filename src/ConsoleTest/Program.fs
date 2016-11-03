@@ -19,13 +19,14 @@ let predictRes = [|
 
 module Demo =
     //classification model
-    let testDbPedia() =
+    let testDbPedia(loss, expectedPrecision) =
         let trainData = Input.FilePath("D:/ft/data/dbpedia.train")
         let testData = Input.FilePath("D:/ft/data/dbpedia.test")
-        let state = Classifier.train trainData 4 Classifier.args 2uy "__label__" true None
+        let args = {Classifier.args with loss = loss}
+        let state = Classifier.train trainData 4 args 2uy "__label__" true None
         let r = Classifier.test state <| FileReader.streamToLines testData
-        assert(r.precision >= 0.98f) 
-        assert(r.recall >= 0.98f)
+        assert(r.precision >= expectedPrecision) 
+        assert(r.recall >= expectedPrecision)
         assert(r.nexamples = 70000) 
         let r = Classifier.predict state <| FileReader.streamToLines testData
         let r =  r |> Seq.take (predictRes.Length)
@@ -71,9 +72,10 @@ module Demo =
 
 [<EntryPoint>]
 let main argv = 
-    
-    Demo.testDbPedia()
-    Demo.testMy()
+    let checks = [|Args.Loss.Softmax,0.98f;Args.Loss.Ns(5),0.97f;Args.Loss.Hs,0.97f|]
+    for chk in checks do
+        Demo.testDbPedia chk
     Demo.testSkipgramWiki() |> ignore
+    Demo.testMy()
     System.Console.ReadKey() |> ignore
     0 // return an integer exit code
