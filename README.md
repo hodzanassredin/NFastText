@@ -2,7 +2,13 @@
 
 NFastText is a .net library for efficient learning of word representations and sentence classification.
 
-[Tutorial](https://hodzanassredin.github.io/NFastText/)
+##[Tutorial](https://hodzanassredin.github.io/NFastText/)
+
+##Quick Start
+
+    ./buiild.sh
+    ./load_test_data.sh
+    ./fsi fasttext.fsx
 
 ## Build Status
 
