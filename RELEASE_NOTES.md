@@ -1,3 +1,6 @@
+#### 0.0.4-beta - November 04 2016
+* Fixed Fsharp.Core dependency
+
 #### 0.0.3-beta - November 04 2016
 * Fixed file saving, fixed api methods to be more accessible from c#
 

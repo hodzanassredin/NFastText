@@ -5,10 +5,13 @@ open System.Reflection
 [<assembly: AssemblyTitleAttribute("NFastText")>]
 [<assembly: AssemblyProductAttribute("NFastText")>]
 [<assembly: AssemblyDescriptionAttribute("fast text classification library based on facebook's fastText library implementation.")>]
-[<assembly: AssemblyVersionAttribute("0.0.3")>]
-[<assembly: AssemblyFileVersionAttribute("0.0.3")>]
+[<assembly: AssemblyVersionAttribute("0.0.4")>]
+[<assembly: AssemblyFileVersionAttribute("0.0.4")>]
 do ()
 
 module internal AssemblyVersionInformation =
-    let [<Literal>] Version = "0.0.3"
-    let [<Literal>] InformationalVersion = "0.0.3"
+    let [<Literal>] AssemblyTitle = "NFastText"
+    let [<Literal>] AssemblyProduct = "NFastText"
+    let [<Literal>] AssemblyDescription = "fast text classification library based on facebook's fastText library implementation."
+    let [<Literal>] AssemblyVersion = "0.0.4"
+    let [<Literal>] AssemblyFileVersion = "0.0.4"
