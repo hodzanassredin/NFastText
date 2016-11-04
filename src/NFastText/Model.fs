@@ -174,9 +174,9 @@ module ModelImplementations =
         let negatives = ResizeArray<int>(counts.Length)
         let mutable z = 0.0f
         for i = 0 to counts.Length - 1 do
-            z <- z + float32(float(counts.[i]) ** 0.5)
+            z <- z + float32(System.Math.Sqrt(float(counts.[i])))
         for i = 0 to counts.Length - 1 do
-            let c = float32(float(counts.[i]) ** 0.5)
+            let c = float32(System.Math.Sqrt(float(counts.[i])))
             for j = 0 to int(c * float32(negativeTableSize) / z) - 1 do
                 negatives.Add(i)
         negatives.Sort(fun x y -> rng.Next())
