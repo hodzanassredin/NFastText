@@ -213,8 +213,10 @@ module FastTextM =
         let model = createModel state threadId sharedState
 
         let en = src.GetEnumerator()
-        let rec loop lr =
-            async{
+        let mutable lr = state.args_.common.lr
+        let mutable finished =false
+        async{
+            while not finished do
                 en.MoveNext() |> ignore
                 let line, labels = state.dict_.vectorize (model.Rng) en.Current
                 let count = line.Count + labels.Count
@@ -224,12 +226,10 @@ module FastTextM =
                     | Vectorizer(VecModel.cbow,_,_) -> cbow(state, model, lr, line) 
                     | Vectorizer(VecModel.sg,_,_) -> skipgram(state, model, lr, line) 
                     | _ -> failwith "not supported model"
-                let lr, finished = up count (model.Loss())
-                if finished 
-                then return ()
-                else return! loop lr
-            }
-        loop <| state.args_.common.lr
+                let lr_, finished_ = up count (model.Loss())
+                lr <- lr_
+                finished <- finished_
+        }
 
     let loadVectors state (inp : seq<string * Vector>) = 
         let words = ResizeArray<string>()

@@ -4,13 +4,15 @@
 open NFastText
 open NFastText.FileReader
 
+let rootPath = "d:/ft"
+
 let testClassifier()=
     //run load_test_data.sh before this script
-    let trainData = Input.FilePath("./data/dbpedia.train")
+    let trainData = Input.FilePath(rootPath + "/data/dbpedia.train")
     //we train our classifier in 4 threads, using 2 wordgrams and default model args, verbosive, without pretrained vectors and with label prefix "__label__"
     let state = Classifier.train(trainData, 4, Classifier.args, 2uy, "__label__", true, None)
 
-    let testData = Input.FilePath("./data/dbpedia.test")
+    let testData = Input.FilePath(rootPath + "/data/dbpedia.test")
     let r = Classifier.test(state, 1, FileReader.streamToLines testData)
     printfn "%A" r
     assert(r.precision >= 9.8f) 
@@ -24,10 +26,10 @@ let testClassifier()=
 
 let testVectorizer() = 
 
-    let vecTrainData = Input.FilePath("./data/text9")
+    let vecTrainData = Input.FilePath(rootPath + "/data/text9")
     let skipgram = Vectorizer.train(vecTrainData,4,Vectorizer.args,Args.VecModel.sg, 3uy, 6uy, true)
 
-    let words = Input.FilePath("./data/queries.txt") |> FileReader.streamToWords
+    let words = Input.FilePath(rootPath + "/data/queries.txt") |> FileReader.streamToWords
     let wordsWithVectors = Vectorizer.getWordVectors(skipgram,words)
     ()
 testClassifier()
