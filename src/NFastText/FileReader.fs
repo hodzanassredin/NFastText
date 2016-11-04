@@ -1,6 +1,32 @@
 ﻿namespace NFastText
 open System.IO
 
+module Seq =
+    let chunkBySize chunkSize (source : seq<_>) =
+            seq { use e = source.GetEnumerator()
+                  let nextChunk() =
+                      let res = Array.zeroCreate chunkSize
+                      res.[0] <- e.Current
+                      let i = ref 1
+                      while !i < chunkSize && e.MoveNext() do
+                          res.[!i] <- e.Current
+                          i := !i + 1
+                      if !i = chunkSize then
+                          res
+                      else
+                          Array.sub res 0 !i 
+                  while e.MoveNext() do
+                      yield nextChunk() }
+
+module Array =
+    let contains e (array:'T[]) =
+            let mutable state = false
+            let mutable i = 0
+            while not state && i < array.Length do
+                state <- e = array.[i]
+                i <- i + 1
+            state 
+
 type Input =
     | Stream of Stream
     | FilePath of string
@@ -17,7 +43,7 @@ module FileReader =
         let r = new StreamReader(s.ToStream())
         let mutable line = r.ReadLine()
         seq {
-            while isNull line |> not  do
+            while line <> null  do
                 yield line.Split(splitters)
                 line <- r.ReadLine()
         }

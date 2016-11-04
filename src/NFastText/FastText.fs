@@ -256,8 +256,8 @@ module FastTextM =
         state.input_.Uniform(1.0f / float32(state.args_.common.dim))
           
         let count = match state.args_.model with
-            | Classifier(_) -> state.dict_.Nlabels()
-            | _ -> state.dict_.Nwords()
+                        | Classifier(_) -> state.dict_.Nlabels()
+                        | _ -> state.dict_.Nwords()
         state.output_ <- Math.create(count, state.args_.common.dim)
         state.output_.Zero()
 
