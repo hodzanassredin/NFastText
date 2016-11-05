@@ -7,6 +7,7 @@ module FastTextM =
     open System.Collections.Generic
     open System.Diagnostics
     open System.IO
+    open System.Threading
 
     type TestResult = {
         precision : float32
@@ -214,22 +215,20 @@ module FastTextM =
 
         let en = src.GetEnumerator()
         let mutable lr = state.args_.common.lr
-        let mutable finished =false
-        async{
-            while not finished do
-                en.MoveNext() |> ignore
-                let line, labels = state.dict_.vectorize (model.Rng) en.Current
-                let count = line.Count + labels.Count
-                state.dict_.AddWordNgrams(line) 
-                match state.args_.model with
-                    | Classifier(_) -> supervised(model, lr, line, labels) 
-                    | Vectorizer(VecModel.cbow,_,_) -> cbow(state, model, lr, line) 
-                    | Vectorizer(VecModel.sg,_,_) -> skipgram(state, model, lr, line) 
-                    | _ -> failwith "not supported model"
-                let lr_, finished_ = up count (model.Loss())
-                lr <- lr_
-                finished <- finished_
-        }
+        let mutable finished = false
+        while not finished do
+            en.MoveNext() |> ignore
+            let line, labels = state.dict_.vectorize (model.Rng) en.Current
+            let count = line.Count + labels.Count
+            state.dict_.AddWordNgrams(line) 
+            match state.args_.model with
+                | Classifier(_) -> supervised(model, lr, line, labels) 
+                | Vectorizer(VecModel.cbow,_,_) -> cbow(state, model, lr, line) 
+                | Vectorizer(VecModel.sg,_,_) -> skipgram(state, model, lr, line) 
+                | _ -> failwith "not supported model"
+            let lr_, finished_ = up count (model.Loss())
+            lr <- lr_
+            finished <- finished_
 
     let loadVectors state (inp : seq<string * Vector>) = 
         let words = ResizeArray<string>()
@@ -267,10 +266,11 @@ module FastTextM =
           
         let sharedState = Some(createSharedState state)
         let tokenCount = ref 0L
-        src |> Seq.mapi (fun i src -> worker tokenCount src state sharedState verbose i)
-            |> Async.Parallel
-            |> Async.Ignore 
-            |> Async.RunSynchronously
+        let threads =src |> Seq.mapi (fun i src -> fun () -> worker tokenCount src state sharedState verbose i)
+                         |> Seq.map (fun act -> Thread(act))
+                         |> Array.ofSeq
+        threads |> Array.iter (fun t -> t.Start())
+        threads |> Array.iter (fun t -> t.Join())
         state
 
   
