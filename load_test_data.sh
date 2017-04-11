@@ -33,3 +33,6 @@ then
     wget -c http://www-nlp.stanford.edu/~lmthang/morphoNLM/rw.zip -P "${DATADIR}"
     unzip "${DATADIR}/rw.zip" -d "${DATADIR}"
 fi
+
+cut -f 1,2 "${DATADIR}"/rw/rw.txt | awk '{print tolower($0)}' | tr '\t' '\n' > "${DATADIR}"/queries.txt
+
