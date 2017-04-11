@@ -4,7 +4,7 @@
 open NFastText
 open NFastText.FileReader
 
-let rootPath = "d:/ft"
+let rootPath = __SOURCE_DIRECTORY__
 
 let testClassifier()=
     //run load_test_data.sh before this script
