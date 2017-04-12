@@ -179,7 +179,14 @@ module ModelImplementations =
             let c = float32(System.Math.Sqrt(float(counts.[i])))
             for j = 0 to int(c * float32(negativeTableSize) / z) - 1 do
                 negatives.Add(i)
-        negatives.Sort(fun x y -> rng.Next())
+        // randomly shuffle the array
+        let swap (a: ResizeArray<int>) x y =
+            let tmp = a.[x]
+            a.[x] <- a.[y]
+            a.[y] <- tmp        
+        for i = 0 to negatives.Count-1 do
+            swap negatives i (rng.DiscrUniformSample(i, negatives.Count-1)) 
+
         negatives
 
     type NegativeSamplingModel(negatives : ResizeArray<int>, neg, model : ModelState) =
